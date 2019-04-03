@@ -83,8 +83,9 @@ struct devfreq_dev_status {
  *			from devfreq_remove_device() call. If the user
  *			has registered devfreq->nb at a notifier-head,
  *			this is the time to unregister it.
- * @freq_table:	Optional list of frequencies to support statistics.
- * @max_state:	The size of freq_table.
+ * @freq_table:		Optional list of frequencies to support statistics
+ *			and freq_table must be generated in ascending order.
+ * @max_state:		The size of freq_table.
  */
 struct devfreq_dev_profile {
 	unsigned long initial_freq;
@@ -96,7 +97,7 @@ struct devfreq_dev_profile {
 	int (*get_cur_freq)(struct device *dev, unsigned long *freq);
 	void (*exit)(struct device *dev);
 
-	unsigned int *freq_table;
+	unsigned long *freq_table;
 	unsigned int max_state;
 };
 
@@ -104,6 +105,8 @@ struct devfreq_dev_profile {
  * struct devfreq_governor - Devfreq policy governor
  * @node:		list node - contains registered devfreq governors
  * @name:		Governor's name
+ * @immutable:		Immutable flag for governor. If the value is 1,
+ *			this govenror is never changeable to other governor.
  * @get_target_freq:	Returns desired operating frequency for the device.
  *			Basically, get_target_freq will run
  *			devfreq_dev_profile.get_dev_status() to get the
@@ -121,6 +124,7 @@ struct devfreq_governor {
 	struct list_head node;
 
 	const char name[DEVFREQ_NAME_LEN];
+	const unsigned int immutable;
 	int (*get_target_freq)(struct devfreq *this, unsigned long *freq);
 	int (*event_handler)(struct devfreq *devfreq,
 				unsigned int event, void *data);
@@ -145,6 +149,8 @@ struct devfreq_governor {
  *		touch this.
  * @min_freq:	Limit minimum frequency requested by user (0: none)
  * @max_freq:	Limit maximum frequency requested by user (0: none)
+ * @scaling_min_freq:	Limit minimum frequency requested by OPP interface
+ * @scaling_max_freq:	Limit maximum frequency requested by OPP interface
  * @stop_polling:	 devfreq polling status of a device.
  * @total_trans:	Number of devfreq transitions
  * @trans_table:	Statistics of devfreq transitions
@@ -178,6 +184,8 @@ struct devfreq {
 
 	unsigned long min_freq;
 	unsigned long max_freq;
+	unsigned long scaling_min_freq;
+	unsigned long scaling_max_freq;
 	bool stop_polling;
 
 	/* information for device frequency transition */

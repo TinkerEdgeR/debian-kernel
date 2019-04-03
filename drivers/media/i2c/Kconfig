@@ -509,6 +509,14 @@ config VIDEO_IMX258
         help
           This driver supports IMX258 cameras from Sony
 
+config VIDEO_IMX317
+	tristate "Sony imx317 sensor support"
+	depends on VIDEO_V4L2 && I2C
+	depends on MEDIA_CAMERA_SUPPORT
+	select V4L2_FWNODE
+	help
+	  This driver supports IMX317 cameras from Sony
+
 config VIDEO_IMX323
 	tristate "Sony imx323 sensor support"
 	depends on VIDEO_V4L2 && I2C
@@ -861,6 +869,39 @@ config VIDEO_GC2355
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called gc2355.
+
+config VIDEO_GC2385
+	tristate "GalaxyCore GC2385 sensor support"
+	depends on VIDEO_V4L2 && I2C && MEDIA_CONTROLLER
+	depends on MEDIA_CAMERA_SUPPORT
+	select V4L2_FWNODE
+	help
+	  Support for the GalaxyCore GC2385 sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gc2385.
+
+config VIDEO_GC5025
+	tristate "GalaxyCore GC5025 sensor support"
+	depends on VIDEO_V4L2 && I2C && MEDIA_CONTROLLER
+	depends on MEDIA_CAMERA_SUPPORT
+	select V4L2_FWNODE
+	help
+	  Support for the GalaxyCore GC5025 sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gc5025.
+
+config VIDEO_GC8034
+	tristate "GalaxyCore GC8034 sensor support"
+	depends on VIDEO_V4L2 && I2C && MEDIA_CONTROLLER
+	depends on MEDIA_CAMERA_SUPPORT
+	select V4L2_FWNODE
+	help
+	  Support for the GalaxyCore GC8034 sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gc8034.
 
 config VIDEO_SC031GS
 	tristate "GalaxyCore SC031GS sensor support"
