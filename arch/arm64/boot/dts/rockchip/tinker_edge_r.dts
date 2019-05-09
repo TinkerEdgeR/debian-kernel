@@ -148,15 +148,6 @@
 		regulator-max-microvolt = <5000000>;
 	};
 
-	wireless-wlan {
-		compatible = "wlan-platdata";
-		rockchip,grf = <&grf>;
-		wifi_chip_type = "ap6398s";
-		sdio_vref = <1800>;
-		WIFI,host_wake_irq = <&gpio0 RK_PA3 GPIO_ACTIVE_HIGH>;
-		status = "okay";
-	};
-
 	wireless-bluetooth {
 		compatible = "bluetooth-platdata";
 		clocks = <&rk809 1>;
@@ -897,6 +888,10 @@
 &saradc {
 	status = "okay";
 	vref-supply = <&vcc_1v8>;
+};
+
+&sdio0 {
+	status = "disabled";
 };
 
 &sdmmc {
