@@ -61,3 +61,27 @@
 		opp-microvolt = <900000>;
 	};
 };
+
+&edp {
+	status = "disabled";
+};
+
+&route_edp {
+	status = "disabled";
+};
+
+&gsl3673 {
+	status = "disabled";
+};
+
+&panel {
+	status = "disabled";
+};
+
+&backlight {
+	status = "disabled";
+};
+
+&pwm0 {
+	status = "disabled";
+};
