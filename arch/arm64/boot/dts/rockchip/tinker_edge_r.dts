@@ -1,5 +1,0 @@
-#include "rk3399pro-evb-v11-linux.dtsi"
-
-/ {
-        model = "Tinker Edge R";
-};
