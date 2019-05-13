@@ -89,6 +89,7 @@ enum {
 enum {
 	FAN53555_CHIP_REV_00 = 0x3,
 	FAN53555_CHIP_REV_13 = 0xf,
+	FAN53555_CHIP_REV_23 = 0xc,
 };
 
 enum {
@@ -335,6 +336,11 @@ static int fan53555_voltages_setup_fairchild(struct fan53555_device_info *di)
 		case FAN53555_CHIP_REV_13:
 			di->vsel_min = 800000;
 			di->vsel_step = 10000;
+			break;
+		case FAN53555_CHIP_REV_23:
+			dev_info(di->dev, "setup fairchild REV_23 vsel\n");
+			di->vsel_min = 600000;
+			di->vsel_step = 12500;
 			break;
 		default:
 			dev_err(di->dev,
@@ -605,6 +611,9 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 	}
 	di->dev = &client->dev;
 	i2c_set_clientdata(client, di);
+
+	dev_info(&client->dev, "fan53555_regulator_probe: addr = 0x%02x\n", client->addr);
+
 	/* Get chip ID */
 	ret = regmap_read(di->regmap, FAN53555_ID1, &val);
 	if (ret < 0) {
