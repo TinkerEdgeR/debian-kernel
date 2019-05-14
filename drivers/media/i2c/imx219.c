@@ -9,6 +9,7 @@
  */
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/init.h>
 #include <linux/io.h>
@@ -218,6 +219,11 @@ struct imx219 {
 	struct media_pad pad;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct clk *clk;
+
+	struct gpio_desc	*power_gpio;
+	struct gpio_desc	*enable_gpio;
+	struct gpio_desc	*clksel_gpio;
+
 	struct v4l2_rect crop_rect;
 	int hflip;
 	int vflip;
@@ -887,7 +893,7 @@ static int imx219_video_probe(struct i2c_client *client)
 		ret = -ENODEV;
 		goto done;
 	}
-	dev_info(&client->dev,
+	dev_err(&client->dev,
 		 "Model ID 0x%04x, Lot ID 0x%06x, Chip ID 0x%04x\n",
 		 model_id, lot_id, chip_id);
 done:
@@ -999,12 +1005,24 @@ static int imx219_probe(struct i2c_client *client,
 		return -EINVAL;
 	}
 
-	priv->clk = devm_clk_get(&client->dev, NULL);
+	priv->clk = devm_clk_get(&client->dev, "xvclk");
 	if (IS_ERR(priv->clk)) {
 		dev_info(&client->dev, "Error %ld getting clock\n",
 			 PTR_ERR(priv->clk));
 		return -EPROBE_DEFER;
 	}
+
+	priv->power_gpio = devm_gpiod_get(dev, "power", GPIOD_OUT_HIGH);
+	if (IS_ERR(priv->power_gpio))
+		dev_warn(dev, "Failed to get power_gpios\n");
+
+	priv->enable_gpio = devm_gpiod_get(dev, "enable", GPIOD_OUT_HIGH);
+	if (IS_ERR(priv->enable_gpio))
+		dev_warn(dev, "Failed to get enable_gpios\n");
+
+	priv->clksel_gpio = devm_gpiod_get(dev, "clksel", GPIOD_OUT_HIGH);
+	if (IS_ERR(priv->clksel_gpio))
+		dev_warn(dev, "Failed to get clksel_gpios\n");
 
 	/* 1920 * 1080 by default */
 	priv->cur_mode = &supported_modes[0];

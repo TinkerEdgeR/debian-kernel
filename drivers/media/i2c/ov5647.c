@@ -21,11 +21,13 @@
 
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_graph.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/slab.h>
 #include <linux/videodev2.h>
 #include <media/v4l2-ctrls.h>
@@ -63,6 +65,13 @@ static const s64 link_freq_menu_items[] = {
 	OV5647_LINK_FREQ_150MHZ
 };
 
+#define OF_CAMERA_PINCTRL_STATE_DEFAULT	"camera_default"
+#define OF_CAMERA_PINCTRL_STATE_SLEEP	"camera_sleep"
+
+#define OV5647_XVCLK_FREQ		24000000
+
+
+
 struct regval_list {
 	u16 addr;
 	u8 data;
@@ -77,6 +86,14 @@ struct ov5647_state {
 	unsigned int height;
 	int power_count;
 	struct clk *xclk;
+
+	struct gpio_desc	*power_gpio;
+	struct gpio_desc	*enable_gpio;
+	struct gpio_desc	*clksel_gpio;
+
+	struct pinctrl		*pinctrl;
+	struct pinctrl_state	*pins_default;
+	struct pinctrl_state	*pins_sleep;
 
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_ctrl *link_freq;
@@ -158,6 +175,7 @@ static struct regval_list ov5647_common_regs[] = {
 	{0x3a1f, 0x28},
 	{0x4001, 0x02},
 	{0x4000, 0x09},
+#if 1 //0: use auto AE/AWB control from sensor
 	{0x3503, 0x03},		/* manual,0xAE */
 	{0x3500, 0x00},
 	{0x3501, 0x6f},
@@ -173,6 +191,7 @@ static struct regval_list ov5647_common_regs[] = {
 	{0x518a, 0x04},
 	{0x518b, 0x00},
 	{0x5000, 0x00},		/* lenc WBC on */
+#endif
 	{0x3011, 0x62},
 	/* mipi */
 	{0x3016, 0x08},
@@ -761,17 +780,19 @@ static int ov5647_detect(struct v4l2_subdev *sd)
 	u8 read;
 	int ret;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
+/*
 
 	ret = ov5647_write(sd, OV5647_SW_RESET, 0x01);
 	if (ret < 0)
 		return ret;
+*/
 
 	ret = ov5647_read(sd, OV5647_REG_CHIPID_H, &read);
 	if (ret < 0)
 		return ret;
 
+	dev_err(&client->dev, "ID High expected 0x56 got %x", read);
 	if (read != 0x56) {
-		dev_err(&client->dev, "ID High expected 0x56 got %x", read);
 		return -ENODEV;
 	}
 
@@ -779,8 +800,8 @@ static int ov5647_detect(struct v4l2_subdev *sd)
 	if (ret < 0)
 		return ret;
 
+	dev_err(&client->dev, "ID Low expected 0x47 got %x", read);
 	if (read != 0x47) {
-		dev_err(&client->dev, "ID Low expected 0x47 got %x", read);
 		return -ENODEV;
 	}
 
@@ -835,7 +856,6 @@ static int ov5647_probe(struct i2c_client *client,
 	int ret;
 	struct v4l2_subdev *sd;
 	struct device_node *np = client->dev.of_node;
-	u32 xclk_freq;
 
 	sensor = devm_kzalloc(dev, sizeof(*sensor), GFP_KERNEL);
 	if (!sensor)
@@ -850,16 +870,44 @@ static int ov5647_probe(struct i2c_client *client,
 	}
 
 	/* get system clock (xclk) */
-	sensor->xclk = devm_clk_get(dev, NULL);
+	sensor->xclk = devm_clk_get(dev, "xvclk");
 	if (IS_ERR(sensor->xclk)) {
 		dev_err(dev, "could not get xclk");
 		return PTR_ERR(sensor->xclk);
 	}
+	ret = clk_set_rate(sensor->xclk, OV5647_XVCLK_FREQ);
+	if (ret < 0) {
+		dev_err(dev, "Failed to set xvclk rate (24MHz)\n");
+		return ret;
+	}
+	if (clk_get_rate(sensor->xclk) != OV5647_XVCLK_FREQ)
+		dev_warn(dev, "xvclk mismatched, modes are based on 24MHz\n");
 
-	xclk_freq = clk_get_rate(sensor->xclk);
-	if (xclk_freq != 25000000) {
-		dev_err(dev, "Unsupported clock frequency: %u\n", xclk_freq);
-		return -EINVAL;
+	sensor->power_gpio = devm_gpiod_get(dev, "power", GPIOD_OUT_HIGH);
+	if (IS_ERR(sensor->power_gpio))
+		dev_warn(dev, "Failed to get power_gpios\n");
+
+	sensor->enable_gpio = devm_gpiod_get(dev, "enable", GPIOD_OUT_HIGH);
+	if (IS_ERR(sensor->enable_gpio))
+		dev_warn(dev, "Failed to get enable_gpios\n");
+
+	sensor->clksel_gpio = devm_gpiod_get(dev, "clksel", GPIOD_OUT_HIGH);
+	if (IS_ERR(sensor->clksel_gpio))
+		dev_warn(dev, "Failed to get clksel_gpios\n");
+
+	sensor->pinctrl = devm_pinctrl_get(dev);
+	if (!IS_ERR(sensor->pinctrl)) {
+		sensor->pins_default =
+			pinctrl_lookup_state(sensor->pinctrl,
+					     OF_CAMERA_PINCTRL_STATE_DEFAULT);
+		if (IS_ERR(sensor->pins_default))
+			dev_err(dev, "could not get default pinstate\n");
+
+		sensor->pins_sleep =
+			pinctrl_lookup_state(sensor->pinctrl,
+					     OF_CAMERA_PINCTRL_STATE_SLEEP);
+		if (IS_ERR(sensor->pins_sleep))
+			dev_err(dev, "could not get sleep pinstate\n");
 	}
 
 	mutex_init(&sensor->lock);
