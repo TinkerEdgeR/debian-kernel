@@ -373,8 +373,8 @@
 			vdd_center: DCDC_REG1 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <750000>;
-				regulator-max-microvolt = <1350000>;
+				regulator-min-microvolt = <800000>;
+				regulator-max-microvolt = <1000000>;
 				regulator-initial-mode = <0x2>;
 				regulator-name = "vdd_center";
 				regulator-state-mem {
@@ -386,8 +386,8 @@
 			vdd_cpu_l: DCDC_REG2 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <750000>;
-				regulator-max-microvolt = <1350000>;
+				regulator-min-microvolt = <800000>;
+				regulator-max-microvolt = <1200000>;
 				regulator-ramp-delay = <6001>;
 				regulator-initial-mode = <0x2>;
 				regulator-name = "vdd_cpu_l";
@@ -438,7 +438,8 @@
 				regulator-max-microvolt = <900000>;
 				regulator-name = "vcca_0v9";
 				regulator-state-mem {
-					regulator-off-in-suspend;
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <900000>;
 				};
 			};
 
@@ -476,7 +477,8 @@
 
 				regulator-name = "vcca_1v8";
 				regulator-state-mem {
-					regulator-off-in-suspend;
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <1800000>;
 				};
 			};
 
@@ -559,7 +561,8 @@
 
 				regulator-name = "vccio_3v3";
 				regulator-state-mem {
-					regulator-off-in-suspend;
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <3300000>;
 				};
 			};
 		};
