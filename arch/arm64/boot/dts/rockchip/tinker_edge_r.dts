@@ -75,7 +75,7 @@
 	rk809-sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,format = "i2s";
-		simple-audio-card,name = "rockchip,rk809-codec";
+		simple-audio-card,name = "rockchip,rk809";
 		simple-audio-card,mclk-fs = <256>;
 		simple-audio-card,widgets =
 			"Microphone", "Mic Jack",
@@ -91,6 +91,24 @@
 		simple-audio-card,codec {
 			sound-dai = <&rk809_codec>;
 		};
+	};
+
+	spdif-sound {
+		status = "okay";
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "rockchip,spdif";
+		simple-audio-card,cpu {
+			sound-dai = <&spdif>;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&spdif_out>;
+		};
+	};
+
+	spdif_out: spdif-out {
+		status = "okay";
+		compatible = "linux,spdif-dit";
+		#sound-dai-cells = <0>;
 	};
 
 	hdmi_sound: hdmi-sound {
@@ -643,6 +661,14 @@
 		pd-charge-only = <0>;
 		status = "disabled";
 	};
+};
+
+&spdif {
+	status = "okay";
+	pinctrl-0 = <&spdif_bus>;
+	i2c-scl-rising-time-ns = <450>;
+	i2c-scl-falling-time-ns = <15>;
+	#sound-dai-cells = <0>;
 };
 
 &i2c1 {
