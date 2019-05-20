@@ -166,6 +166,12 @@
 		regulator-max-microvolt = <5000000>;
 	};
 
+	wireless-wlan {
+		compatible = "wlan-platdata";
+		wifi_chip_type = "rtl8822be";
+		status = "okay";
+	};
+
 	wireless-bluetooth {
 		compatible = "bluetooth-platdata";
 		clocks = <&rk809 1>;
