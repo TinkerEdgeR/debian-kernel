@@ -213,6 +213,19 @@
 	phys = <&tcphy0_dp>;
 };
 
+&dsi {
+	status = "okay";
+	mipi_panel: mipi-panel {
+		compatible ="asus,tc358762";
+		reg = <0>;
+		status = "okay";
+	};
+};
+
+&dsi_in_vopb {
+	status = "disabled";
+};
+
 &cpu_l0 {
 	cpu-supply = <&vdd_cpu_l>;
 };
@@ -772,6 +785,11 @@
 	status = "okay";
 	i2c-scl-rising-time-ns = <345>;
 	i2c-scl-falling-time-ns = <11>;
+
+	tinker_mcu: tinker_mcu@45 {
+		compatible = "tinker_mcu";
+		reg = <0x45>;
+	};
 };
 
 &i2c8 {
