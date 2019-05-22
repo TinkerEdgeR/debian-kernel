@@ -356,8 +356,13 @@
 		<000000000 0x0000 0x0000 0x0000>;
 };
 
-&hdmi_in_vopb {
+&hdmi_in_vopl {
 	status = "disabled";
+};
+
+&route_hdmi {
+    status = "okay";
+    connect = <&vopb_out_hdmi>;
 };
 
 &i2c0 {
