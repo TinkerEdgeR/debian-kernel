@@ -144,7 +144,7 @@ static int rk817_shutdown_prepare(struct rk808 *rk808)
 			   (0x3 << 5), (0x3 << 5));
 	regmap_update_bits(rk808->regmap,
 			   RK817_RTC_INT_REG,
-			   (0x3 << 2), (0x0 << 2));
+			   (0x1 << 2), (0x0 << 2));
 
 	if (rk808->pins && rk808->pins->p && rk808->pins->power_off) {
 		ret = regmap_update_bits(rk808->regmap,
