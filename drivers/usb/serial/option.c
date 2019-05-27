@@ -243,7 +243,7 @@ static void option_instat_callback(struct urb *urb);
 /* These Yuga products use Qualcomm's vendor ID */
 #define YUGA_PRODUCT_CLM920_NC5			0x9625
 
-#define QUECTEL_VENDOR_ID			0x2c7c
+#define QUECTEL_VENDOR_ID			0x2C7C
 /* These Quectel products use Quectel's vendor ID */
 #define QUECTEL_PRODUCT_EC21			0x0121
 #define QUECTEL_PRODUCT_EC25			0x0125
@@ -1976,8 +1976,8 @@ static struct usb_serial_driver option_1port_device = {
 #ifdef CONFIG_PM
 	.suspend           = usb_wwan_suspend,
 	.resume            = usb_wwan_resume,
-#if 1  //Added by Quectel
-	.reset_resume      = usb_wwan_resume,
+#if 1 //add by Quectel
+	.reset_resume   = usb_wwan_resume,
 #endif
 #endif
 };
@@ -1995,6 +1995,21 @@ static int option_probe(struct usb_serial *serial,
 				&serial->interface->cur_altsetting->desc;
 	struct usb_device_descriptor *dev_desc = &serial->dev->descriptor;
 	unsigned long device_flags = id->driver_info;
+
+#if 1 //Added by Quectel
+	//Quectel UC20's interface 4 can be used as USB Network device
+	if (serial->dev->descriptor.idVendor == cpu_to_le16(0x05C6) && serial->dev->descriptor.idProduct == cpu_to_le16(0x9003)
+		&& serial->interface->cur_altsetting->desc.bInterfaceNumber >= 4)
+		return -ENODEV;
+	//Quectel EC20's interface 4 can be used as USB Network device
+	if (serial->dev->descriptor.idVendor == cpu_to_le16(0x05C6) && serial->dev->descriptor.idProduct == cpu_to_le16(0x9215)
+		&& serial->interface->cur_altsetting->desc.bInterfaceNumber >= 4)
+		return -ENODEV;
+	//Quectel EC25&EC21 's interface 4 can be used as USB Network device
+	if (serial->dev->descriptor.idVendor == cpu_to_le16(0x2C7C)
+		&& serial->interface->cur_altsetting->desc.bInterfaceNumber >= 4)
+		return -ENODEV;
+#endif
 
 	/* Never bind to the CD-Rom emulation interface	*/
 	if (iface_desc->bInterfaceClass == 0x08)
@@ -2015,21 +2030,6 @@ static int option_probe(struct usb_serial *serial,
 	    dev_desc->idProduct == cpu_to_le16(SAMSUNG_PRODUCT_GT_B3730) &&
 	    iface_desc->bInterfaceClass != USB_CLASS_CDC_DATA)
 		return -ENODEV;
-
-#if 1 //Added by Quectel
-//Quectel UC20's interface 4 can be used as USB network device
-	if (serial->dev->descriptor.idVendor == cpu_to_le16(0x05C6) && serial->dev->descriptor.idProduct == cpu_to_le16(0x9003)
-		&& serial->interface->cur_altsetting->desc.bInterfaceNumber >= 4)
-		return -ENODEV;
-//Quectel EC20's interface 4 can be used as USB network device
-	if (serial->dev->descriptor.idVendor == cpu_to_le16(0x05C6) && serial->dev->descriptor.idProduct == cpu_to_le16(0x9215)
-		&& serial->interface->cur_altsetting->desc.bInterfaceNumber >= 4)
-		return -ENODEV;
-//Quectel EC25&EC21&EG91&EG95&EG06&EP06&EM06&BG96/AG35's interface 4 can be used as USB network device
-	if (serial->dev->descriptor.idVendor == cpu_to_le16(0x2C7C)
-		&& serial->interface->cur_altsetting->desc.bInterfaceNumber >= 4)
-		return -ENODEV;
-#endif
 
 	/* Store the device flags so we can use them during attach. */
 	usb_set_serial_data(serial, (void *)device_flags);
