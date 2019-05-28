@@ -1005,7 +1005,7 @@
 };
 
 &sdio0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &sdmmc {
