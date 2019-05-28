@@ -3,6 +3,8 @@
  * ov5648 driver
  *
  * Copyright (C) 2017 Fuzhou Rockchip Electronics Co., Ltd.
+ *
+ * V0.0X01.0X01 add poweron function.
  */
 
 #include <linux/clk.h>
@@ -17,7 +19,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/sysfs.h>
 #include <linux/pinctrl/consumer.h>
-
+#include <linux/version.h>
 #include <media/v4l2-async.h>
 #include <media/media-entity.h>
 #include <media/v4l2-common.h>
@@ -33,6 +35,8 @@
 
 /* verify default register values */
 //#define CHECK_REG_VALUE
+
+#define DRIVER_VERSION			KERNEL_VERSION(0, 0x01, 0x01)
 
 #ifndef V4L2_CID_DIGITAL_GAIN
 #define V4L2_CID_DIGITAL_GAIN		V4L2_CID_GAIN
@@ -137,6 +141,7 @@ struct ov5648 {
 	struct v4l2_ctrl	*test_pattern;
 	struct mutex		mutex;
 	bool			streaming;
+	bool			power_on;
 	const struct ov5648_mode *cur_mode;
 	unsigned int lane_num;
 	unsigned int cfg_num;
@@ -808,10 +813,6 @@ static int __ov5648_start_stream(struct ov5648 *ov5648)
 {
 	int ret;
 
-	ret = ov5648_write_array(ov5648->client, ov5648_global_regs);
-	if (ret)
-		return ret;
-
 	ret = ov5648_write_array(ov5648->client, ov5648->cur_mode->reg_list);
 	if (ret)
 		return ret;
@@ -881,6 +882,44 @@ static int ov5648_s_stream(struct v4l2_subdev *sd, int on)
 	}
 
 	ov5648->streaming = on;
+
+unlock_and_return:
+	mutex_unlock(&ov5648->mutex);
+
+	return ret;
+}
+
+static int ov5648_s_power(struct v4l2_subdev *sd, int on)
+{
+	struct ov5648 *ov5648 = to_ov5648(sd);
+	struct i2c_client *client = ov5648->client;
+	int ret = 0;
+
+	mutex_lock(&ov5648->mutex);
+
+	/* If the power state is not modified - no work to do. */
+	if (ov5648->power_on == !!on)
+		goto unlock_and_return;
+
+	if (on) {
+		ret = pm_runtime_get_sync(&client->dev);
+		if (ret < 0) {
+			pm_runtime_put_noidle(&client->dev);
+			goto unlock_and_return;
+		}
+
+		ret = ov5648_write_array(ov5648->client, ov5648_global_regs);
+		if (ret) {
+			v4l2_err(sd, "could not set init registers\n");
+			pm_runtime_put_noidle(&client->dev);
+			goto unlock_and_return;
+		}
+
+		ov5648->power_on = true;
+	} else {
+		pm_runtime_put(&client->dev);
+		ov5648->power_on = false;
+	}
 
 unlock_and_return:
 	mutex_unlock(&ov5648->mutex);
@@ -1021,6 +1060,7 @@ static const struct v4l2_subdev_internal_ops ov5648_internal_ops = {
 #endif
 
 static const struct v4l2_subdev_core_ops ov5648_core_ops = {
+	.s_power = ov5648_s_power,
 	.ioctl = ov5648_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = ov5648_compat_ioctl32,
@@ -1195,7 +1235,7 @@ static int ov5648_check_sensor_id(struct ov5648 *ov5648,
 			      OV5648_REG_VALUE_16BIT, &id);
 	if (id != CHIP_ID) {
 		dev_err(dev, "Unexpected sensor id(%06x), ret(%d)\n", id, ret);
-		return ret;
+		return -ENODEV;
 	}
 
 	dev_info(dev, "Detected OV%06x sensor\n", CHIP_ID);
@@ -1260,6 +1300,11 @@ static int ov5648_probe(struct i2c_client *client,
 	struct v4l2_subdev *sd;
 	char facing[2] = "b";
 	int ret;
+
+	dev_info(dev, "driver version: %02x.%02x.%02x",
+		DRIVER_VERSION >> 16,
+		(DRIVER_VERSION & 0xff00) >> 8,
+		DRIVER_VERSION & 0x00ff);
 
 	ov5648 = devm_kzalloc(dev, sizeof(*ov5648), GFP_KERNEL);
 	if (!ov5648)
@@ -1376,7 +1421,7 @@ static int ov5648_probe(struct i2c_client *client,
 		 ov5648->module_index, facing,
 		 OV5648_NAME, dev_name(sd->dev));
 
-	ret = v4l2_async_register_subdev(sd);
+	ret = v4l2_async_register_subdev_sensor_common(sd);
 	if (ret) {
 		dev_err(dev, "v4l2 async register subdev failed\n");
 		goto err_clean_entity;

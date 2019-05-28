@@ -554,6 +554,18 @@ config VIDEO_OV2659
 	  To compile this driver as a module, choose M here: the
 	  module will be called ov2659.
 
+config VIDEO_OV2680
+	tristate "OmniVision OV2680 sensor support"
+	depends on VIDEO_V4L2 && I2C
+	depends on MEDIA_CAMERA_SUPPORT
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor-level driver for the OmniVision
+	  OV2680 camera.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called OV2680.
+
 config VIDEO_OV2685
 	tristate "OmniVision OV2685 sensor support"
 	depends on VIDEO_V4L2 && I2C && MEDIA_CONTROLLER
@@ -931,6 +943,24 @@ config VIDEO_GC2035
 	  To compile this driver as a module, choose M here: the
 	  module will be called gc2035.
 
+config VIDEO_BF3925
+	tristate "BYD BF3925 sensor support"
+	depends on VIDEO_V4L2 && I2C && VIDEO_V4L2_SUBDEV_API
+	help
+	  Support for the BYD BF3925 sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called BF3925.
+
+config VIDEO_JX_H65
+	tristate "SOI JX_H65 sensor support"
+	depends on VIDEO_V4L2 && I2C && VIDEO_V4L2_SUBDEV_API
+	help
+	  Support for the SOI JX_H65 sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called jx_h65.
+
 config VIDEO_PREISP_DUMMY_SENSOR
 	tristate "Preisp dummy sensor support"
 	depends on VIDEO_V4L2 && I2C && VIDEO_V4L2_SUBDEV_API
@@ -1010,6 +1040,20 @@ config VIDEO_VM149C
 	---help---
 	  This is a driver for the VM149C camera lens voice coil.
 
+config VIDEO_DW9714
+	tristate "DW9714 lens voice coil support"
+	depends on I2C && VIDEO_V4L2 && MEDIA_CONTROLLER
+	depends on VIDEO_V4L2_SUBDEV_API
+	---help---
+	  This is a driver for the DW9714 camera lens voice coil.
+
+config VIDEO_FP5510
+	tristate "FP5510 lens voice coil support"
+	depends on I2C && VIDEO_V4L2 && MEDIA_CONTROLLER
+	depends on VIDEO_V4L2_SUBDEV_API
+	---help---
+	  This is a driver for the FP5510 camera lens voice coil.
+
 comment "Audio/Video compression chips"
 
 config VIDEO_SAA6752HS
@@ -1042,6 +1086,15 @@ config VIDEO_M52790
 
 	 To compile this driver as a module, choose M here: the
 	 module will be called m52790.
+
+config VIDEO_NVP6324
+	tristate "NEXTCHIP nvp6324 driver support"
+	depends on VIDEO_V4L2 && I2C
+	---help---
+	  Support for the NVP6324.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called jaguar1_drv.
 endmenu
 
 menu "Sensors used on soc_camera driver"

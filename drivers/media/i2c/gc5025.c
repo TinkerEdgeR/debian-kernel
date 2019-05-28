@@ -3,6 +3,8 @@
  * gc5025 driver
  *
  * Copyright (C) 2017 Fuzhou Rockchip Electronics Co., Ltd.
+ *
+ * V0.0X01.0X01 add poweron function.
  */
 
 #include <linux/clk.h>
@@ -14,6 +16,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sysfs.h>
+#include <linux/version.h>
 #include <linux/rk-camera-module.h>
 #include <media/media-entity.h>
 #include <media/v4l2-async.h>
@@ -21,6 +24,8 @@
 #include <media/v4l2-subdev.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/slab.h>
+
+#define DRIVER_VERSION			KERNEL_VERSION(0, 0x01, 0x01)
 
 #ifndef V4L2_CID_DIGITAL_GAIN
 #define V4L2_CID_DIGITAL_GAIN		V4L2_CID_GAIN
@@ -160,6 +165,7 @@ struct gc5025 {
 	struct v4l2_ctrl	*vblank;
 	struct mutex		mutex;
 	bool			streaming;
+	bool			power_on;
 	const struct gc5025_mode *cur_mode;
 	u32			module_index;
 	const char		*module_facing;
@@ -333,7 +339,7 @@ static const struct gc5025_mode supported_modes[] = {
 			.denominator = 300000,
 		},
 		.exp_def = 0x07C0,
-		.hts_def = 0x04B0,
+		.hts_def = 0x12C0,
 		.vts_def = 0x07D0,
 		.reg_list = gc5025_1600x1200_regs,
 	},
@@ -462,10 +468,10 @@ static int gc5025_set_fmt(struct v4l2_subdev *sd,
 #endif
 	} else {
 		gc5025->cur_mode = mode;
-		h_blank = mode->hts_def / 2;
+		h_blank = mode->hts_def - mode->width;
 		__v4l2_ctrl_modify_range(gc5025->hblank, h_blank,
 			h_blank, 1, h_blank);
-		vblank_def = mode->vts_def - mode->height - 24;
+		vblank_def = mode->vts_def - mode->height;
 		__v4l2_ctrl_modify_range(gc5025->vblank, vblank_def,
 			GC5025_VTS_MAX - mode->height,
 			1, vblank_def);
@@ -1215,9 +1221,6 @@ static int __gc5025_start_stream(struct gc5025 *gc5025)
 {
 	int ret;
 
-	ret = gc5025_write_array(gc5025->client, gc5025_global_regs);
-	if (ret)
-		return ret;
 	ret = gc5025_write_array(gc5025->client, gc5025->cur_mode->reg_list);
 	if (ret)
 		return ret;
@@ -1296,6 +1299,44 @@ static int gc5025_s_stream(struct v4l2_subdev *sd, int on)
 	}
 
 	gc5025->streaming = on;
+
+unlock_and_return:
+	mutex_unlock(&gc5025->mutex);
+
+	return ret;
+}
+
+static int gc5025_s_power(struct v4l2_subdev *sd, int on)
+{
+	struct gc5025 *gc5025 = to_gc5025(sd);
+	struct i2c_client *client = gc5025->client;
+	int ret = 0;
+
+	mutex_lock(&gc5025->mutex);
+
+	/* If the power state is not modified - no work to do. */
+	if (gc5025->power_on == !!on)
+		goto unlock_and_return;
+
+	if (on) {
+		ret = pm_runtime_get_sync(&client->dev);
+		if (ret < 0) {
+			pm_runtime_put_noidle(&client->dev);
+			goto unlock_and_return;
+		}
+
+		ret = gc5025_write_array(gc5025->client, gc5025_global_regs);
+		if (ret) {
+			v4l2_err(sd, "could not set init registers\n");
+			pm_runtime_put_noidle(&client->dev);
+			goto unlock_and_return;
+		}
+
+		gc5025->power_on = true;
+	} else {
+		pm_runtime_put(&client->dev);
+		gc5025->power_on = false;
+	}
 
 unlock_and_return:
 	mutex_unlock(&gc5025->mutex);
@@ -1429,6 +1470,7 @@ static const struct v4l2_subdev_internal_ops gc5025_internal_ops = {
 #endif
 
 static const struct v4l2_subdev_core_ops gc5025_core_ops = {
+	.s_power = gc5025_s_power,
 	.ioctl = gc5025_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = gc5025_compat_ioctl32,
@@ -1524,7 +1566,7 @@ static int gc5025_set_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_VBLANK:
 		/* Update max exposure while meeting expected vblanking */
-		max = gc5025->cur_mode->height + ctrl->val + 32 - 4;
+		max = gc5025->cur_mode->height + ctrl->val - 4;
 		__v4l2_ctrl_modify_range(gc5025->exposure,
 			gc5025->exposure->minimum, max,
 			gc5025->exposure->step,
@@ -1549,10 +1591,10 @@ static int gc5025_set_ctrl(struct v4l2_ctrl *ctrl)
 			GC5025_SET_PAGE_ONE);
 		ret |= gc5025_write_reg(gc5025->client,
 			GC5025_REG_VTS_H,
-			(ctrl->val >> 8) & 0xff);
+			((ctrl->val - 24) >> 8) & 0xff);
 		ret |= gc5025_write_reg(gc5025->client,
 			GC5025_REG_VTS_L,
-			ctrl->val & 0xff);
+			(ctrl->val - 24) & 0xff);
 		break;
 	default:
 		dev_warn(&client->dev, "%s Unhandled id:0x%x, val:0x%x\n",
@@ -1649,7 +1691,7 @@ static int gc5025_check_sensor_id(struct gc5025 *gc5025,
 	id = ((reg_H << 8) & 0xff00) | (reg_L & 0xff);
 	if (id != CHIP_ID) {
 		dev_err(dev, "Unexpected sensor id(%06x), ret(%d)\n", id, ret);
-		return ret;
+		return -ENODEV;
 	}
 	ret |= gc5025_read_reg(client, 0x26, &flag_doublereset);
 	ret |= gc5025_read_reg(client, 0x27, &flag_GC5025A);
@@ -1689,6 +1731,11 @@ static int gc5025_probe(struct i2c_client *client,
 	struct v4l2_subdev *sd;
 	char facing[2];
 	int ret;
+
+	dev_info(dev, "driver version: %02x.%02x.%02x",
+		DRIVER_VERSION >> 16,
+		(DRIVER_VERSION & 0xff00) >> 8,
+		DRIVER_VERSION & 0x00ff);
 
 	gc5025 = devm_kzalloc(dev, sizeof(*gc5025), GFP_KERNEL);
 	if (!gc5025)

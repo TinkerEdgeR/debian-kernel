@@ -3,6 +3,8 @@
  * gc8034 driver
  *
  * Copyright (C) 2017 Fuzhou Rockchip Electronics Co., Ltd.
+ *
+ * V0.0X01.0X01 add poweron function.
  */
 
 #include <linux/clk.h>
@@ -14,6 +16,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sysfs.h>
+#include <linux/version.h>
 #include <linux/rk-camera-module.h>
 #include <media/media-entity.h>
 #include <media/v4l2-async.h>
@@ -21,6 +24,8 @@
 #include <media/v4l2-subdev.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/slab.h>
+
+#define DRIVER_VERSION			KERNEL_VERSION(0, 0x01, 0x01)
 
 #ifndef V4L2_CID_DIGITAL_GAIN
 #define V4L2_CID_DIGITAL_GAIN		V4L2_CID_GAIN
@@ -30,7 +35,7 @@
 #define GC8034_BITS_PER_SAMPLE		10
 #define GC8034_LINK_FREQ_MHZ		336000000
 /* pixel rate = link frequency * 2 * lanes / BITS_PER_SAMPLE */
-#define GC8034_PIXEL_RATE		80000000//268800000
+#define GC8034_PIXEL_RATE		80000000
 #define GC8034_XVCLK_FREQ		24000000
 
 #define CHIP_ID				0x8044
@@ -157,6 +162,7 @@ struct gc8034 {
 	struct v4l2_ctrl	*vblank;
 	struct mutex		mutex;
 	bool			streaming;
+	bool			power_on;
 	const struct gc8034_mode *cur_mode;
 	u32			module_index;
 	const char		*module_facing;
@@ -443,10 +449,10 @@ static const struct gc8034_mode supported_modes[] = {
 		.height = 2448,
 		.max_fps = {
 			.numerator = 10000,
-			.denominator = 300000,
+			.denominator = 299625,
 		},
 		.exp_def = 0x08c6,
-		.hts_def = 0x042c,
+		.hts_def = 0x10b0,
 		.vts_def = 0x09c4,
 		.reg_list = gc8034_3264x2448_regs,
 	},
@@ -575,10 +581,10 @@ static int gc8034_set_fmt(struct v4l2_subdev *sd,
 #endif
 	} else {
 		gc8034->cur_mode = mode;
-		h_blank = mode->hts_def / 2;
+		h_blank = mode->hts_def - mode->width;
 		__v4l2_ctrl_modify_range(gc8034->hblank, h_blank,
 					 h_blank, 1, h_blank);
-		vblank_def = mode->vts_def - mode->height - 36;
+		vblank_def = mode->vts_def - mode->height;
 		__v4l2_ctrl_modify_range(gc8034->vblank, vblank_def,
 					 GC8034_VTS_MAX - mode->height,
 					 1, vblank_def);
@@ -1441,10 +1447,6 @@ static int __gc8034_start_stream(struct gc8034 *gc8034)
 {
 	int ret;
 
-	ret = gc8034_write_array(gc8034->client, gc8034_global_regs);
-	if (ret)
-		return ret;
-
 	ret = gc8034_otp_enable(gc8034);
 	gc8034_check_prsel(gc8034);
 	ret |= gc8034_apply_otp(gc8034);
@@ -1499,6 +1501,44 @@ static int gc8034_s_stream(struct v4l2_subdev *sd, int on)
 	}
 
 	gc8034->streaming = on;
+
+unlock_and_return:
+	mutex_unlock(&gc8034->mutex);
+
+	return ret;
+}
+
+static int gc8034_s_power(struct v4l2_subdev *sd, int on)
+{
+	struct gc8034 *gc8034 = to_gc8034(sd);
+	struct i2c_client *client = gc8034->client;
+	int ret = 0;
+
+	mutex_lock(&gc8034->mutex);
+
+	/* If the power state is not modified - no work to do. */
+	if (gc8034->power_on == !!on)
+		goto unlock_and_return;
+
+	if (on) {
+		ret = pm_runtime_get_sync(&client->dev);
+		if (ret < 0) {
+			pm_runtime_put_noidle(&client->dev);
+			goto unlock_and_return;
+		}
+
+		ret = gc8034_write_array(gc8034->client, gc8034_global_regs);
+		if (ret) {
+			v4l2_err(sd, "could not set init registers\n");
+			pm_runtime_put_noidle(&client->dev);
+			goto unlock_and_return;
+		}
+
+		gc8034->power_on = true;
+	} else {
+		pm_runtime_put(&client->dev);
+		gc8034->power_on = false;
+	}
 
 unlock_and_return:
 	mutex_unlock(&gc8034->mutex);
@@ -1632,6 +1672,7 @@ static const struct v4l2_subdev_internal_ops gc8034_internal_ops = {
 #endif
 
 static const struct v4l2_subdev_core_ops gc8034_core_ops = {
+	.s_power = gc8034_s_power,
 	.ioctl = gc8034_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = gc8034_compat_ioctl32,
@@ -1781,7 +1822,7 @@ static int gc8034_set_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_VBLANK:
 		/* Update max exposure while meeting expected vblanking */
-		max = gc8034->cur_mode->height + ctrl->val + 36 - 4;
+		max = gc8034->cur_mode->height + ctrl->val - 4;
 		__v4l2_ctrl_modify_range(gc8034->exposure,
 					 gc8034->exposure->minimum, max,
 					 gc8034->exposure->step,
@@ -1806,10 +1847,10 @@ static int gc8034_set_ctrl(struct v4l2_ctrl *ctrl)
 					GC8034_SET_PAGE_ZERO);
 		ret |= gc8034_write_reg(gc8034->client,
 					GC8034_REG_VTS_H,
-					(ctrl->val >> 8) & 0xff);
+					((ctrl->val - 36) >> 8) & 0xff);
 		ret |= gc8034_write_reg(gc8034->client,
 					GC8034_REG_VTS_L,
-					ctrl->val & 0xff);
+					(ctrl->val - 36) & 0xff);
 		break;
 	default:
 		dev_warn(&client->dev, "%s Unhandled id:0x%x, val:0x%x\n",
@@ -1901,8 +1942,11 @@ static int gc8034_check_sensor_id(struct gc8034 *gc8034,
 	ret = gc8034_read_reg(client, GC8034_REG_CHIP_ID_H, &reg_H);
 	ret |= gc8034_read_reg(client, GC8034_REG_CHIP_ID_L, &reg_L);
 	id = ((reg_H << 8) & 0xff00) | (reg_L & 0xff);
-	if (id != CHIP_ID)
+	if (id != CHIP_ID) {
 		dev_err(dev, "Unexpected sensor id(%06x), ret(%d)\n", id, ret);
+		return -ENODEV;
+	}
+
 	return ret;
 }
 
@@ -1927,6 +1971,11 @@ static int gc8034_probe(struct i2c_client *client,
 	struct v4l2_subdev *sd;
 	char facing[2];
 	int ret;
+
+	dev_info(dev, "driver version: %02x.%02x.%02x",
+		DRIVER_VERSION >> 16,
+		(DRIVER_VERSION & 0xff00) >> 8,
+		DRIVER_VERSION & 0x00ff);
 
 	gc8034 = devm_kzalloc(dev, sizeof(*gc8034), GFP_KERNEL);
 	if (!gc8034)
