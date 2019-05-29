@@ -1247,8 +1247,13 @@ static int load_config(dev_data *dev_entry, u8 **buf, int *length)
 
 	RTKBT_INFO("config filename %s", config_name);
 	result = request_firmware(&fw, config_name, &udev->dev);
-	if (result < 0)
-		return 0;
+	if (result < 0) {
+		RTKBT_INFO("request_firmware failed, add 500ms delay and retry again");
+		msleep(500);
+		result = request_firmware(&fw, config_name, &udev->dev);
+		if (result < 0)
+			return 0;
+	}
 
 	file_sz = fw->size;
 	len = fw->size;
