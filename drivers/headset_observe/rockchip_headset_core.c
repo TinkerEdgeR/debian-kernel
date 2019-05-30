@@ -43,6 +43,7 @@ static int rockchip_headset_probe(struct platform_device *pdev)
 	int ret;
 	enum of_gpio_flags flags;
 
+	printk(KERN_INFO "Audio : rockchip headset probe\n");
 	pdata = kzalloc(sizeof(struct rk_headset_pdata), GFP_KERNEL);
 	if (pdata == NULL) {
 		printk("%s failed to allocate driver data\n",__FUNCTION__);

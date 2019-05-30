@@ -70,6 +70,7 @@
 #define WAIT 2
 #define BUSY 1
 #define IDLE 0
+#define AUDIO_JACK_DET 13
 
 #ifdef CONFIG_SND_SOC_WM8994
 extern int wm8994_headset_mic_detect(bool headset_status);
@@ -106,8 +107,64 @@ struct headset_priv {
 	unsigned char *keycodes;
 	struct delayed_work hook_work;
 	unsigned int hook_time;//ms
+	struct delayed_work asus_audio_path_switch;
 };
 static struct headset_priv *headset_info;
+int first_boot = 0;
+
+static void asus_audio_path_switch_work(struct work_struct *work)
+{
+	int ret;
+	char *envp[] = {
+		"HOME=/",
+		"TERM=linux",
+		"PATH=/sbin:/usr/sbin:/bin:/usr/bin",
+		NULL,
+	};
+	char *argv_boot_in[] = {
+		"/etc/audio/auto_audio_switch.sh",
+		"boot-in",
+		NULL,
+	};
+	char *argv_boot_out[] = {
+		"/etc/audio/auto_audio_switch.sh",
+		"boot-out",
+		NULL,
+	};
+	char *argv_in[] = {
+		"/etc/audio/auto_audio_switch.sh",
+		"in",
+		NULL,
+	};
+	char *argv_out[] = {
+		"/etc/audio/auto_audio_switch.sh",
+		"out",
+		NULL,
+	};
+
+	printk(KERN_INFO "Audio : current audio jack status : %s\n", headset_info->headset_status?"Plug-In":"Plug-Out");
+
+	if (first_boot == 0) {
+		first_boot = 1;
+		printk(KERN_INFO "Audio : switch audio path (Boot)\n");
+		if (headset_info->headset_status)
+			ret = call_usermodehelper(argv_boot_in[0], argv_boot_in, envp, UMH_WAIT_PROC);
+		else
+			ret = call_usermodehelper(argv_boot_out[0], argv_boot_out, envp, UMH_WAIT_PROC);
+	}
+	else {
+		printk(KERN_INFO "Audio : switch audio path\n");
+		if (headset_info->headset_status)
+			ret = call_usermodehelper(argv_in[0], argv_in, envp, UMH_WAIT_PROC);
+		else
+			ret = call_usermodehelper(argv_out[0], argv_out, envp, UMH_WAIT_PROC);
+	}
+
+	if (ret != 0)
+		printk(KERN_INFO "Audio : call_usermodehelper fail, ret=%d\n", ret);
+
+	return;
+}
 
 //1
 static irqreturn_t headset_interrupt(int irq, void *dev_id)
@@ -196,6 +253,11 @@ static irqreturn_t headset_interrupt(int irq, void *dev_id)
 			irq_set_irq_type(headset_info->irq[HEADSET],IRQF_TRIGGER_FALLING);
 		else
 			irq_set_irq_type(headset_info->irq[HEADSET],IRQF_TRIGGER_RISING);
+
+		if (first_boot == 0)
+			schedule_delayed_work(&headset_info->asus_audio_path_switch,msecs_to_jiffies(5000));
+		else
+			schedule_delayed_work(&headset_info->asus_audio_path_switch,msecs_to_jiffies(100));
 	}
 	else if(headset_info->headset_status == HEADSET_OUT)
 	{
@@ -220,11 +282,15 @@ static irqreturn_t headset_interrupt(int irq, void *dev_id)
 		if(pdata->headset_insert_type == HEADSET_IN_HIGH)
 			irq_set_irq_type(headset_info->irq[HEADSET],IRQF_TRIGGER_RISING);
 		else
-			irq_set_irq_type(headset_info->irq[HEADSET],IRQF_TRIGGER_FALLING);	
+			irq_set_irq_type(headset_info->irq[HEADSET],IRQF_TRIGGER_FALLING);
 
-		switch_set_state(&headset_info->sdev, headset_info->cur_headset_status);	
-		DBG("headset notice android headset status = %d\n",headset_info->cur_headset_status);		
-	}	
+		switch_set_state(&headset_info->sdev, headset_info->cur_headset_status);
+		DBG("headset notice android headset status = %d\n",headset_info->cur_headset_status);
+		if (first_boot == 0)
+			schedule_delayed_work(&headset_info->asus_audio_path_switch,msecs_to_jiffies(5000));
+		else
+			schedule_delayed_work(&headset_info->asus_audio_path_switch,msecs_to_jiffies(100));
+	}
 //	rk_send_wakeup_key();	
 out:
 	headset_info->heatset_irq_working = IDLE;
@@ -444,6 +510,7 @@ int rk_headset_adc_probe(struct platform_device *pdev,struct rk_headset_pdata *p
 	
 //	mutex_init(&headset->mutex_lock[HEADSET]);
 //	mutex_init(&headset->mutex_lock[HOOK]);
+	INIT_DELAYED_WORK(&headset->asus_audio_path_switch, asus_audio_path_switch_work);
 	INIT_DELAYED_WORK(&headset->h_delayed_work[HEADSET], headsetobserve_work);
 	INIT_DELAYED_WORK(&headset->h_delayed_work[HOOK], hook_once_work);
 
@@ -494,6 +561,11 @@ int rk_headset_adc_probe(struct platform_device *pdev,struct rk_headset_pdata *p
 	{
 		headset->chan = pdata->chan;
 		INIT_DELAYED_WORK(&headset->hook_work, hook_work_callback);
+	}
+
+	if (gpio_get_value(AUDIO_JACK_DET) == 0){
+		printk(KERN_INFO "Audio : AUDIO_JACK_DET = %s\n", gpio_get_value(AUDIO_JACK_DET)?"High":"Low");
+		schedule_delayed_work(&headset_info->asus_audio_path_switch,msecs_to_jiffies(5000));
 	}
 
 	return 0;	
