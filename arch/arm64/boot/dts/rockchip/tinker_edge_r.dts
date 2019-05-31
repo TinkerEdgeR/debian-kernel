@@ -1093,6 +1093,7 @@
 };
 
 &usbdrd3_1 {
+	needs-reset-on-resume;
 	status = "okay";
 };
 
