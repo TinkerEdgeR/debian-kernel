@@ -496,8 +496,7 @@
 				regulator-max-microvolt = <900000>;
 				regulator-name = "vcca_0v9";
 				regulator-state-mem {
-					regulator-on-in-suspend;
-					regulator-suspend-microvolt = <900000>;
+					regulator-off-in-suspend;
 				};
 			};
 
@@ -535,8 +534,7 @@
 
 				regulator-name = "vcca_1v8";
 				regulator-state-mem {
-					regulator-on-in-suspend;
-					regulator-suspend-microvolt = <1800000>;
+					regulator-off-in-suspend;
 				};
 			};
 
@@ -619,8 +617,7 @@
 
 				regulator-name = "vccio_3v3";
 				regulator-state-mem {
-					regulator-on-in-suspend;
-					regulator-suspend-microvolt = <3300000>;
+					regulator-off-in-suspend;
 				};
 			};
 		};
