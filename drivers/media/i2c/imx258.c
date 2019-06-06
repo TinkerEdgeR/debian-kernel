@@ -3,6 +3,8 @@
  * imx258 driver
  *
  * Copyright (C) 2017 Fuzhou Rockchip Electronics Co., Ltd.
+ *
+ * V0.0X01.0X01 add poweron function.
  */
 
 #include <linux/clk.h>
@@ -14,6 +16,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sysfs.h>
+#include <linux/version.h>
 #include <linux/rk-camera-module.h>
 #include <media/media-entity.h>
 #include <media/v4l2-async.h>
@@ -21,6 +24,8 @@
 #include <media/v4l2-subdev.h>
 #include <linux/pinctrl/consumer.h>
 #include "imx258_eeprom_head.h"
+
+#define DRIVER_VERSION			KERNEL_VERSION(0, 0x01, 0x01)
 
 #ifndef V4L2_CID_DIGITAL_GAIN
 #define V4L2_CID_DIGITAL_GAIN		V4L2_CID_GAIN
@@ -116,6 +121,7 @@ struct imx258 {
 	struct v4l2_ctrl	*test_pattern;
 	struct mutex		mutex;
 	bool			streaming;
+	bool			power_on;
 	const struct imx258_mode *cur_mode;
 	u32			module_index;
 	const char		*module_facing;
@@ -126,6 +132,7 @@ struct imx258 {
 	struct imx258_otp_info *otp;
 	struct rkmodule_inf	module_inf;
 	struct rkmodule_awb_cfg	awb_cfg;
+	struct rkmodule_lsc_cfg	lsc_cfg;
 };
 
 #define to_imx258(sd) container_of(sd, struct imx258, subdev)
@@ -959,11 +966,19 @@ static void imx258_get_module_inf(struct imx258 *imx258,
 	imx258_get_otp(otp, inf);
 }
 
-static void imx258_set_module_inf(struct imx258 *imx258,
-				  struct rkmodule_awb_cfg *cfg)
+static void imx258_set_awb_cfg(struct imx258 *imx258,
+			       struct rkmodule_awb_cfg *cfg)
 {
 	mutex_lock(&imx258->mutex);
 	memcpy(&imx258->awb_cfg, cfg, sizeof(*cfg));
+	mutex_unlock(&imx258->mutex);
+}
+
+static void imx258_set_lsc_cfg(struct imx258 *imx258,
+			       struct rkmodule_lsc_cfg *cfg)
+{
+	mutex_lock(&imx258->mutex);
+	memcpy(&imx258->lsc_cfg, cfg, sizeof(*cfg));
 	mutex_unlock(&imx258->mutex);
 }
 
@@ -977,7 +992,10 @@ static long imx258_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		imx258_get_module_inf(imx258, (struct rkmodule_inf *)arg);
 		break;
 	case RKMODULE_AWB_CFG:
-		imx258_set_module_inf(imx258, (struct rkmodule_awb_cfg *)arg);
+		imx258_set_awb_cfg(imx258, (struct rkmodule_awb_cfg *)arg);
+		break;
+	case RKMODULE_LSC_CFG:
+		imx258_set_lsc_cfg(imx258, (struct rkmodule_lsc_cfg *)arg);
 		break;
 	default:
 		ret = -ENOTTY;
@@ -993,7 +1011,8 @@ static long imx258_compat_ioctl32(struct v4l2_subdev *sd,
 {
 	void __user *up = compat_ptr(arg);
 	struct rkmodule_inf *inf;
-	struct rkmodule_awb_cfg *cfg;
+	struct rkmodule_awb_cfg *awb_cfg;
+	struct rkmodule_lsc_cfg *lsc_cfg;
 	long ret = 0;
 
 	switch (cmd) {
@@ -1010,16 +1029,28 @@ static long imx258_compat_ioctl32(struct v4l2_subdev *sd,
 		kfree(inf);
 		break;
 	case RKMODULE_AWB_CFG:
-		cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
-		if (!cfg) {
+		awb_cfg = kzalloc(sizeof(*awb_cfg), GFP_KERNEL);
+		if (!awb_cfg) {
 			ret = -ENOMEM;
 			return ret;
 		}
 
-		ret = copy_from_user(cfg, up, sizeof(*cfg));
+		ret = copy_from_user(awb_cfg, up, sizeof(*awb_cfg));
 		if (!ret)
-			ret = imx258_ioctl(sd, cmd, cfg);
-		kfree(cfg);
+			ret = imx258_ioctl(sd, cmd, awb_cfg);
+		kfree(awb_cfg);
+		break;
+	case RKMODULE_LSC_CFG:
+		lsc_cfg = kzalloc(sizeof(*lsc_cfg), GFP_KERNEL);
+		if (!lsc_cfg) {
+			ret = -ENOMEM;
+			return ret;
+		}
+
+		ret = copy_from_user(lsc_cfg, up, sizeof(*lsc_cfg));
+		if (!ret)
+			ret = imx258_ioctl(sd, cmd, lsc_cfg);
+		kfree(lsc_cfg);
 		break;
 	default:
 		ret = -ENOTTY;
@@ -1036,21 +1067,21 @@ static int imx258_apply_otp(struct imx258 *imx258)
 	struct i2c_client *client = imx258->client;
 	struct imx258_otp_info *otp_ptr = imx258->otp;
 	struct rkmodule_awb_cfg *awb_cfg = &imx258->awb_cfg;
-	u32 golden_bg_ratio;
-	u32 golden_rg_ratio;
-	u32 golden_g_value;
+	struct rkmodule_lsc_cfg *lsc_cfg = &imx258->lsc_cfg;
+	u32 golden_bg_ratio = 0;
+	u32 golden_rg_ratio = 0;
+	u32 golden_g_value = 0;
 	u32 bg_ratio;
 	u32 rg_ratio;
 	//u32 g_value;
 	u32 i;
 
-	if (!imx258->awb_cfg.enable)
-		return 0;
-
-	golden_g_value = (awb_cfg->golden_gb_value +
-		awb_cfg->golden_gr_value) / 2;
-	golden_bg_ratio = awb_cfg->golden_b_value * 0x400 / golden_g_value;
-	golden_rg_ratio = awb_cfg->golden_r_value * 0x400 / golden_g_value;
+	if (awb_cfg->enable) {
+		golden_g_value = (awb_cfg->golden_gb_value +
+			awb_cfg->golden_gr_value) / 2;
+		golden_bg_ratio = awb_cfg->golden_b_value * 0x400 / golden_g_value;
+		golden_rg_ratio = awb_cfg->golden_r_value * 0x400 / golden_g_value;
+	}
 	/* apply OTP WB Calibration */
 	if ((otp_ptr->flag & 0x40) && golden_bg_ratio && golden_rg_ratio) {
 		rg_ratio = otp_ptr->rg_ratio;
@@ -1100,7 +1131,7 @@ static int imx258_apply_otp(struct imx258 *imx258)
 	}
 
 	/* apply OTP Lenc Calibration */
-	if (otp_ptr->flag & 0x10) {
+	if ((otp_ptr->flag & 0x10) && lsc_cfg->enable) {
 		for (i = 0; i < 504; i++) {
 			imx258_write_reg(client, 0xA300 + i,
 				IMX258_REG_VALUE_08BIT, otp_ptr->lenc[i]);
@@ -1138,10 +1169,6 @@ static int imx258_apply_otp(struct imx258 *imx258)
 static int __imx258_start_stream(struct imx258 *imx258)
 {
 	int ret;
-
-	ret = imx258_write_array(imx258->client, imx258_global_regs);
-	if (ret)
-		return ret;
 
 	ret = imx258_write_array(imx258->client, imx258->cur_mode->reg_list);
 	if (ret)
@@ -1202,6 +1229,44 @@ static int imx258_s_stream(struct v4l2_subdev *sd, int on)
 	}
 
 	imx258->streaming = on;
+
+unlock_and_return:
+	mutex_unlock(&imx258->mutex);
+
+	return ret;
+}
+
+static int imx258_s_power(struct v4l2_subdev *sd, int on)
+{
+	struct imx258 *imx258 = to_imx258(sd);
+	struct i2c_client *client = imx258->client;
+	int ret = 0;
+
+	mutex_lock(&imx258->mutex);
+
+	/* If the power state is not modified - no work to do. */
+	if (imx258->power_on == !!on)
+		goto unlock_and_return;
+
+	if (on) {
+		ret = pm_runtime_get_sync(&client->dev);
+		if (ret < 0) {
+			pm_runtime_put_noidle(&client->dev);
+			goto unlock_and_return;
+		}
+
+		ret = imx258_write_array(imx258->client, imx258_global_regs);
+		if (ret) {
+			v4l2_err(sd, "could not set init registers\n");
+			pm_runtime_put_noidle(&client->dev);
+			goto unlock_and_return;
+		}
+
+		imx258->power_on = true;
+	} else {
+		pm_runtime_put(&client->dev);
+		imx258->power_on = false;
+	}
 
 unlock_and_return:
 	mutex_unlock(&imx258->mutex);
@@ -1334,6 +1399,7 @@ static const struct v4l2_subdev_internal_ops imx258_internal_ops = {
 #endif
 
 static const struct v4l2_subdev_core_ops imx258_core_ops = {
+	.s_power = imx258_s_power,
 	.ioctl = imx258_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = imx258_compat_ioctl32,
@@ -1515,7 +1581,7 @@ static int imx258_check_sensor_id(struct imx258 *imx258,
 			       IMX258_REG_VALUE_16BIT, &id);
 	if (id != CHIP_ID) {
 		dev_err(dev, "Unexpected sensor id(%06x), ret(%d)\n", id, ret);
-		return ret;
+		return -ENODEV;
 	}
 
 	return 0;
@@ -1546,6 +1612,11 @@ static int imx258_probe(struct i2c_client *client,
 	struct v4l2_subdev *eeprom_ctrl;
 	struct imx258_otp_info *otp_ptr;
 	int ret;
+
+	dev_info(dev, "driver version: %02x.%02x.%02x",
+		DRIVER_VERSION >> 16,
+		(DRIVER_VERSION & 0xff00) >> 8,
+		DRIVER_VERSION & 0x00ff);
 
 	imx258 = devm_kzalloc(dev, sizeof(*imx258), GFP_KERNEL);
 	if (!imx258)

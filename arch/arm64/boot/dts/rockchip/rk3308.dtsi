@@ -1320,6 +1320,13 @@
 		};
 	};
 
+	rockchip_system_monitor: rockchip-system-monitor {
+		compatible = "rockchip,system-monitor";
+
+		rockchip,thermal-zone = "soc-thermal";
+		rockchip,polling-delay = <200>; /* milliseconds */
+	};
+
 	pinctrl: pinctrl {
 		compatible = "rockchip,rk3308-pinctrl";
 		rockchip,grf = <&grf>;
@@ -1469,7 +1476,7 @@
 		ext_micbias {
 			ext_micbias_en: ext-micbias-en {
 				rockchip,pins =
-					<0 RK_PC2 0 &pcfg_pull_none>;
+					<0 RK_PC2 0 &pcfg_pull_down>;
 			};
 		};
 

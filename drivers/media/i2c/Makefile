@@ -5,6 +5,7 @@ obj-$(CONFIG_VIDEO_SMIAPP)	+= smiapp/
 obj-$(CONFIG_VIDEO_CX25840) += cx25840/
 obj-$(CONFIG_VIDEO_M5MOLS)	+= m5mols/
 obj-y				+= soc_camera/
+obj-$(CONFIG_VIDEO_NVP6324)	+= jaguar1_drv/
 
 obj-$(CONFIG_VIDEO_APTINA_PLL) += aptina-pll.o
 obj-$(CONFIG_VIDEO_TVAUDIO) += tvaudio.o
@@ -56,6 +57,7 @@ obj-$(CONFIG_VIDEO_SONY_BTF_MPX) += sony-btf-mpx.o
 obj-$(CONFIG_VIDEO_UPD64031A) += upd64031a.o
 obj-$(CONFIG_VIDEO_UPD64083) += upd64083.o
 
+obj-$(CONFIG_VIDEO_OV2680) += ov2680.o
 obj-$(CONFIG_VIDEO_OV2685) += ov2685.o
 obj-$(CONFIG_VIDEO_OV2718) += ov2718.o
 obj-$(CONFIG_VIDEO_OV2735) += ov2735.o
@@ -93,6 +95,7 @@ obj-$(CONFIG_VIDEO_ML86V7667)	+= ml86v7667.o
 obj-$(CONFIG_VIDEO_OV2659)	+= ov2659.o
 obj-$(CONFIG_VIDEO_TC35874X)	+= tc35874x.o
 obj-$(CONFIG_VIDEO_OV5647)	+= ov5647.o
+obj-$(CONFIG_VIDEO_JX_H65)	+= jx_h65.o
 obj-$(CONFIG_VIDEO_IMX219)	+= imx219.o
 obj-$(CONFIG_VIDEO_IMX258)	+= imx258.o
 obj-$(CONFIG_VIDEO_IMX317)	+= imx317.o
@@ -108,7 +111,9 @@ obj-$(CONFIG_VIDEO_GC2385)	+= gc2385.o
 obj-$(CONFIG_VIDEO_GC5025)	+= gc5025.o
 obj-$(CONFIG_VIDEO_GC8034)	+= gc8034.o
 obj-$(CONFIG_VIDEO_SC031GS)	+= sc031gs.o
-
+obj-$(CONFIG_VIDEO_BF3925)	+= bf3925.o
 obj-$(CONFIG_VIDEO_PREISP_DUMMY_SENSOR) += preisp-dummy.o
 obj-$(CONFIG_VIDEO_VM149C)	+= vm149c.o
+obj-$(CONFIG_VIDEO_DW9714)	+= dw9714.o
+obj-$(CONFIG_VIDEO_FP5510)	+= fp5510.o
 obj-$(CONFIG_VIDEO_VIRT_CAMERA) += virtual-camera.o

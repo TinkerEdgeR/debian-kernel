@@ -3,6 +3,8 @@
  * gc2385 driver
  *
  * Copyright (C) 2017 Fuzhou Rockchip Electronics Co., Ltd.
+ *
+ * V0.0X01.0X01 add poweron function.
  */
 
 #include <linux/clk.h>
@@ -14,12 +16,15 @@
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sysfs.h>
+#include <linux/version.h>
 #include <linux/rk-camera-module.h>
 #include <media/media-entity.h>
 #include <media/v4l2-async.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
 #include <linux/pinctrl/consumer.h>
+
+#define DRIVER_VERSION			KERNEL_VERSION(0, 0x01, 0x01)
 
 #ifndef V4L2_CID_DIGITAL_GAIN
 #define V4L2_CID_DIGITAL_GAIN		V4L2_CID_GAIN
@@ -111,6 +116,7 @@ struct gc2385 {
 	struct v4l2_ctrl	*vblank;
 	struct mutex		mutex;
 	bool			streaming;
+	bool			power_on;
 	const struct gc2385_mode *cur_mode;
 	u32			module_index;
 	const char		*module_facing;
@@ -225,10 +231,10 @@ static const struct gc2385_mode supported_modes[] = {
 		.height = 1200,
 		.max_fps = {
 			.numerator = 10000,
-			.denominator = 300000,
+			.denominator = 304472,
 		},
 		.exp_def = 0x0480,
-		.hts_def = 0x05E8,
+		.hts_def = 0x10DC,
 		.vts_def = 0x04E0,
 		.reg_list = gc2385_1600x1200_regs,
 	},
@@ -357,11 +363,10 @@ static int gc2385_set_fmt(struct v4l2_subdev *sd,
 #endif
 	} else {
 		gc2385->cur_mode = mode;
-		h_blank = mode->hts_def
-			- (((mode->width + 16) / 2 + 40) / 2 + 9);
+		h_blank = mode->hts_def - mode->width;
 		__v4l2_ctrl_modify_range(gc2385->hblank, h_blank,
 					 h_blank, 1, h_blank);
-		vblank_def = mode->vts_def - mode->height - 32;
+		vblank_def = mode->vts_def - mode->height;
 		__v4l2_ctrl_modify_range(gc2385->vblank, vblank_def,
 					 GC2385_VTS_MAX - mode->height,
 					 1, vblank_def);
@@ -514,9 +519,6 @@ static int __gc2385_start_stream(struct gc2385 *gc2385)
 {
 	int ret;
 
-	ret = gc2385_write_array(gc2385->client, gc2385_global_regs);
-	if (ret)
-		return ret;
 	ret = gc2385_write_array(gc2385->client, gc2385->cur_mode->reg_list);
 	if (ret)
 		return ret;
@@ -584,6 +586,44 @@ unlock_and_return:
 	return ret;
 }
 
+static int gc2385_s_power(struct v4l2_subdev *sd, int on)
+{
+	struct gc2385 *gc2385 = to_gc2385(sd);
+	struct i2c_client *client = gc2385->client;
+	int ret = 0;
+
+	mutex_lock(&gc2385->mutex);
+
+	/* If the power state is not modified - no work to do. */
+	if (gc2385->power_on == !!on)
+		goto unlock_and_return;
+
+	if (on) {
+		ret = pm_runtime_get_sync(&client->dev);
+		if (ret < 0) {
+			pm_runtime_put_noidle(&client->dev);
+			goto unlock_and_return;
+		}
+
+		ret = gc2385_write_array(gc2385->client, gc2385_global_regs);
+		if (ret) {
+			v4l2_err(sd, "could not set init registers\n");
+			pm_runtime_put_noidle(&client->dev);
+			goto unlock_and_return;
+		}
+
+		gc2385->power_on = true;
+	} else {
+		pm_runtime_put(&client->dev);
+		gc2385->power_on = false;
+	}
+
+unlock_and_return:
+	mutex_unlock(&gc2385->mutex);
+
+	return ret;
+}
+
 /* Calculate the delay in us by clock rate and clock cycles */
 static inline u32 gc2385_cal_delay(u32 cycles)
 {
@@ -640,8 +680,7 @@ disable_clk:
 
 static void __gc2385_power_off(struct gc2385 *gc2385)
 {
-	int ret;
-	struct device *dev = &gc2385->client->dev;
+	int ret = 0;
 
 	if (!IS_ERR(gc2385->pwdn_gpio))
 		gpiod_set_value_cansleep(gc2385->pwdn_gpio, 1);
@@ -652,7 +691,7 @@ static void __gc2385_power_off(struct gc2385 *gc2385)
 		ret = pinctrl_select_state(gc2385->pinctrl,
 					   gc2385->pins_sleep);
 		if (ret < 0)
-			dev_dbg(dev, "could not set pins\n");
+			dev_dbg(&gc2385->client->dev, "could not set pins\n");
 	}
 	regulator_bulk_disable(GC2385_NUM_SUPPLIES, gc2385->supplies);
 }
@@ -711,6 +750,7 @@ static const struct v4l2_subdev_internal_ops gc2385_internal_ops = {
 #endif
 
 static const struct v4l2_subdev_core_ops gc2385_core_ops = {
+	.s_power = gc2385_s_power,
 	.ioctl = gc2385_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = gc2385_compat_ioctl32,
@@ -866,7 +906,7 @@ static int gc2385_set_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_VBLANK:
 		/* Update max exposure while meeting expected vblanking */
-		max = gc2385->cur_mode->height + ctrl->val + 32 - 4;
+		max = gc2385->cur_mode->height + ctrl->val - 4;
 		__v4l2_ctrl_modify_range(gc2385->exposure,
 					 gc2385->exposure->minimum, max,
 					 gc2385->exposure->step,
@@ -899,10 +939,10 @@ static int gc2385_set_ctrl(struct v4l2_ctrl *ctrl)
 					GC2385_SET_PAGE_ONE);
 		ret |= gc2385_write_reg(gc2385->client,
 					GC2385_REG_VTS_H,
-					(ctrl->val >> 8) & 0xff);
+					((ctrl->val - 32) >> 8) & 0xff);
 		ret |= gc2385_write_reg(gc2385->client,
 					GC2385_REG_VTS_L,
-					ctrl->val & 0xff);
+					(ctrl->val - 32) & 0xff);
 		break;
 	default:
 		dev_warn(&client->dev, "%s Unhandled id:0x%x, val:0x%x\n",
@@ -999,7 +1039,7 @@ static int gc2385_check_sensor_id(struct gc2385 *gc2385,
 	id = ((reg_H << 8) & 0xff00) | (reg_L & 0xff);
 	if (id != CHIP_ID) {
 		dev_err(dev, "Unexpected sensor id(%06x), ret(%d)\n", id, ret);
-		return ret;
+		return -ENODEV;
 	}
 	return ret;
 }
@@ -1025,6 +1065,11 @@ static int gc2385_probe(struct i2c_client *client,
 	struct v4l2_subdev *sd;
 	char facing[2];
 	int ret;
+
+	dev_info(dev, "driver version: %02x.%02x.%02x",
+		DRIVER_VERSION >> 16,
+		(DRIVER_VERSION & 0xff00) >> 8,
+		DRIVER_VERSION & 0x00ff);
 
 	gc2385 = devm_kzalloc(dev, sizeof(*gc2385), GFP_KERNEL);
 	if (!gc2385)

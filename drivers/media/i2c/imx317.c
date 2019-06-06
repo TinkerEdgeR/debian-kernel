@@ -3,6 +3,8 @@
  * imx317 driver
  *
  * Copyright (C) 2017 Fuzhou Rockchip Electronics Co., Ltd.
+ *
+ * V0.0X01.0X01 add poweron function.
  */
 
 #include <linux/clk.h>
@@ -14,6 +16,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sysfs.h>
+#include <linux/slab.h>
+#include <linux/version.h>
 #include <linux/rk-camera-module.h>
 #include <media/media-entity.h>
 #include <media/v4l2-async.h>
@@ -21,13 +25,15 @@
 #include <media/v4l2-subdev.h>
 #include <linux/pinctrl/consumer.h>
 
+#define DRIVER_VERSION			KERNEL_VERSION(0, 0x01, 0x01)
+
 #ifndef V4L2_CID_DIGITAL_GAIN
 #define V4L2_CID_DIGITAL_GAIN		V4L2_CID_GAIN
 #endif
 
-#define IMX317_LINK_FREQ_288MHZ		288000000
+#define IMX317_LINK_FREQ_360MHZ		360000000
 /* pixel rate = link frequency * 2 * lanes / BITS_PER_SAMPLE */
-#define IMX317_PIXEL_RATE		(IMX317_LINK_FREQ_288MHZ * 2 * 2 / 10)
+#define IMX317_PIXEL_RATE		(IMX317_LINK_FREQ_360MHZ * 2 * 2 / 10)
 #define IMX317_XVCLK_FREQ		24000000
 
 #define CHIP_ID				0x03
@@ -39,7 +45,7 @@
 
 #define IMX317_REG_EXPOSURE_H		0x300D
 #define IMX317_REG_EXPOSURE_L		0x300C
-#define IMX317_EXPOSURE_MIN		8
+#define IMX317_EXPOSURE_MIN		12
 #define IMX317_EXPOSURE_STEP		1
 #define IMX317_VTS_MAX			0x7fff
 
@@ -117,6 +123,7 @@ struct imx317 {
 	struct v4l2_ctrl	*test_pattern;
 	struct mutex		mutex;
 	bool			streaming;
+	bool			power_on;
 	const struct imx317_mode *cur_mode;
 	u32			module_index;
 	const char		*module_facing;
@@ -136,13 +143,13 @@ static const struct regval imx317_global_regs[] = {
 /*
  * Xclk 24Mhz
  * max_framerate 30fps
- * mipi_datarate per lane 576Mbps
- * 2 lane
+ * mipi_datarate per lane 720Mbps
+ * 4 lane
  */
 static const struct regval imx317_1932x1094_regs[] = {
-	{0x3000, 0x12},
-	{0x303E, 0x03},
-	{0x3120, 0xC0},
+	{0x3000, 0x1f},
+	{0x303E, 0x02},
+	{0x3120, 0xF0},
 	{0x3121, 0x00},
 	{0x3122, 0x02},
 	{0x3123, 0x01},
@@ -199,22 +206,20 @@ static const struct regval imx317_1932x1094_regs[] = {
 	{0x30E0, 0x00},
 	{0x30E1, 0x00},
 	{0x30E2, 0x02},
-
-	{0x30F6, 0x70},
-	{0x30F7, 0x02},
-	{0x30F8, 0x0A},
-	{0x30F9, 0x0F},
+	{0x30F6, 0x1e},
+	{0x30F7, 0x01},
+	{0x30F8, 0xD0},
+	{0x30F9, 0x20},
 	{0x30FA, 0x00},
-
-	{0x3130, 0x4E},
+	{0x3130, 0x4e},
 	{0x3131, 0x04},
 	{0x3132, 0x46},
 	{0x3133, 0x04},
-	{0x3A54, 0x8C},
-	{0x3A55, 0x07},
-	{0x3342, 0x0A},
+	{0x3a54, 0x8c},
+	{0x3a55, 0x07},
+	{0x3342, 0x0a},
 	{0x3343, 0x00},
-	{0x3344, 0x1A},
+	{0x3344, 0x1a},
 	{0x3345, 0x00},
 	{0x3528, 0x0E},
 	{0x3554, 0x00},
@@ -232,41 +237,169 @@ static const struct regval imx317_1932x1094_regs[] = {
 	{0x33A6, 0x01},
 	{0x306B, 0x05},
 	{0x3A41, 0x08},
-
-	{0x3134, 0x5F},
+	{0x3134, 0x77},
 	{0x3135, 0x00},
-	{0x3136, 0x47},
+	{0x3136, 0x67},
 	{0x3137, 0x00},
-	{0x3138, 0x27},
+	{0x3138, 0x37},
 	{0x3139, 0x00},
-	{0x313A, 0x27},
+	{0x313A, 0x37},
 	{0x313B, 0x00},
-	{0x313C, 0x27},
+	{0x313C, 0x37},
 	{0x313D, 0x00},
-	{0x313E, 0x97},
+	{0x313E, 0xDF},
 	{0x313F, 0x00},
-	{0x3140, 0x27},
+	{0x3140, 0x37},
 	{0x3141, 0x00},
-	{0x3142, 0x1F},
+	{0x3142, 0x2F},
 	{0x3143, 0x00},
 	{0x3144, 0x0F},
 	{0x3145, 0x00},
 	{0x3A85, 0x03},
 	{0x3A86, 0x47},
 	{0x3A87, 0x00},
-	{REG_DELAY, 0x0f},//delay 10ms
-
-	{0x3000, 0x00},
-	{0x303e, 0x03},
-	{REG_DELAY, 0x0a},//delay 7ms
-
-	{0x30f4, 0x00},
-	{0x3018, 0xa2},
+	{REG_DELAY, 0x10},
+	{0x303E, 0x02},
+	{REG_DELAY, 0x07},
+	{0x30F4, 0x00},
+	{0x3018, 0xA2},
+	{0x300a, 0x9c},
+	{0x300b, 0x02},
 	{0x300c, 0x0c},
 	{0x300d, 0x00},
-	{0x312e, 0x01},//CSI_LANE_MODE//add
-	{0x3aa2, 0x01},//PHYSICAL_LANE_NUM//add
-	{0x3001, 0x16},
+	{0x3001, 0x10},
+	{REG_NULL, 0x00},
+};
+
+/*
+ * Xclk 24Mhz
+ * max_framerate 30fps
+ * mipi_datarate per lane 720Mbps
+ * 4 lane
+ */
+static const struct regval imx317_3864x2174_regs[] = {
+	{0x3000, 0x1f},
+	{0x303E, 0x02},
+	{0x3120, 0xF0},
+	{0x3121, 0x00},
+	{0x3122, 0x02},
+	{0x3123, 0x01},
+	{0x3129, 0x9C},
+	{0x312A, 0x02},
+	{0x312D, 0x02},
+	{0x3AC4, 0x01},
+	{0x310B, 0x00},
+	{0x30EE, 0x01},
+	{0x3304, 0x32},
+	{0x3306, 0x32},
+	{0x3590, 0x32},
+	{0x3686, 0x32},
+	{0x3045, 0x32},
+	{0x301A, 0x00},
+	{0x304C, 0x00},
+	{0x304D, 0x03},
+	{0x331C, 0x1A},
+	{0x3502, 0x02},
+	{0x3529, 0x0E},
+	{0x352A, 0x0E},
+	{0x352B, 0x0E},
+	{0x3538, 0x0E},
+	{0x3539, 0x0E},
+	{0x3553, 0x00},
+	{0x357D, 0x05},
+	{0x357F, 0x05},
+	{0x3581, 0x04},
+	{0x3583, 0x76},
+	{0x3587, 0x01},
+	{0x35BB, 0x0E},
+	{0x35BC, 0x0E},
+	{0x35BD, 0x0E},
+	{0x35BE, 0x0E},
+	{0x35BF, 0x0E},
+	{0x366E, 0x00},
+	{0x366F, 0x00},
+	{0x3670, 0x00},
+	{0x3671, 0x00},
+	{0x3004, 0x01},
+	{0x3005, 0x01},
+	{0x3006, 0x00},
+	{0x3007, 0x02},
+	{0x300E, 0x00},
+	{0x300F, 0x00},
+	{0x3037, 0x00},
+	{0x3038, 0x00},
+	{0x3039, 0x00},
+	{0x303A, 0x00},
+	{0x303B, 0x00},
+	{0x30DD, 0x00},
+	{0x30DE, 0x00},
+	{0x30DF, 0x00},
+	{0x30E0, 0x00},
+	{0x30E1, 0x00},
+	{0x30E2, 0x01},
+	{0x30F6, 0x10},
+	{0x30F7, 0x02},
+	{0x30F8, 0xc6},
+	{0x30F9, 0x11},
+	{0x30FA, 0x00},
+	{0x3130, 0x86},
+	{0x3131, 0x08},
+	{0x3132, 0x7E},
+	{0x3133, 0x08},
+	{0x3A54, 0x18},
+	{0x3A55, 0x0F},
+	{0x3342, 0x0A},
+	{0x3343, 0x00},
+	{0x3344, 0x16},
+	{0x3345, 0x00},
+	{0x3528, 0x0E},
+	{0x3554, 0x1F},
+	{0x3555, 0x01},
+	{0x3556, 0x01},
+	{0x3557, 0x01},
+	{0x3558, 0x01},
+	{0x3559, 0x00},
+	{0x355A, 0x00},
+	{0x35BA, 0x0E},
+	{0x366A, 0x1B},
+	{0x366B, 0x1A},
+	{0x366C, 0x19},
+	{0x366D, 0x17},
+	{0x33A6, 0x01},
+	{0x306B, 0x05},
+	{0x3A41, 0x08},
+	{0x3134, 0x77},
+	{0x3135, 0x00},
+	{0x3136, 0x67},
+	{0x3137, 0x00},
+	{0x3138, 0x37},
+	{0x3139, 0x00},
+	{0x313A, 0x37},
+	{0x313B, 0x00},
+	{0x313C, 0x37},
+	{0x313D, 0x00},
+	{0x313E, 0xDF},
+	{0x313F, 0x00},
+	{0x3140, 0x37},
+	{0x3141, 0x00},
+	{0x3142, 0x2F},
+	{0x3143, 0x00},
+	{0x3144, 0x0F},
+	{0x3145, 0x00},
+	{0x3A85, 0x03},
+	{0x3A86, 0x47},
+	{0x3A87, 0x00},
+	{0x3A43, 0x01},
+	{REG_DELAY, 0x10},
+	{0x303E, 0x02},
+	{REG_DELAY, 0x07},
+	{0x30F4, 0x00},
+	{0x3018, 0xA2},
+	{0x300a, 0x9c},
+	{0x300b, 0x02},
+	{0x300c, 0x0c},
+	{0x300d, 0x00},
+	{0x3001, 0x10},
 	{REG_NULL, 0x00},
 };
 
@@ -276,14 +409,23 @@ static const struct imx317_mode supported_modes[] = {
 		.height = 1094,
 		.max_fps = 30,
 		.exp_def = 0x000C,
-		.hts_def = 0x0276,
-		.vts_def = 0x0F0A,
+		.hts_def = 0x011E,
+		.vts_def = 0x20D0,
 		.reg_list = imx317_1932x1094_regs,
+	},
+	{
+		.width = 3864,
+		.height = 2174,
+		.max_fps = 30,
+		.exp_def = 0x000C,
+		.hts_def = 0x0210,
+		.vts_def = 0x11C6,
+		.reg_list = imx317_3864x2174_regs,
 	},
 };
 
 static const s64 link_freq_menu_items[] = {
-	IMX317_LINK_FREQ_288MHZ
+	IMX317_LINK_FREQ_360MHZ
 };
 
 static const char * const imx317_test_pattern_menu[] = {
@@ -590,10 +732,6 @@ static int __imx317_start_stream(struct imx317 *imx317)
 {
 	int ret;
 
-	ret = imx317_write_array(imx317->client, imx317_global_regs);
-	if (ret)
-		return ret;
-
 	ret = imx317_write_array(imx317->client, imx317->cur_mode->reg_list);
 	if (ret)
 		return ret;
@@ -645,6 +783,44 @@ static int imx317_s_stream(struct v4l2_subdev *sd, int on)
 	}
 
 	imx317->streaming = on;
+
+unlock_and_return:
+	mutex_unlock(&imx317->mutex);
+
+	return ret;
+}
+
+static int imx317_s_power(struct v4l2_subdev *sd, int on)
+{
+	struct imx317 *imx317 = to_imx317(sd);
+	struct i2c_client *client = imx317->client;
+	int ret = 0;
+
+	mutex_lock(&imx317->mutex);
+
+	/* If the power state is not modified - no work to do. */
+	if (imx317->power_on == !!on)
+		goto unlock_and_return;
+
+	if (on) {
+		ret = pm_runtime_get_sync(&client->dev);
+		if (ret < 0) {
+			pm_runtime_put_noidle(&client->dev);
+			goto unlock_and_return;
+		}
+
+		ret = imx317_write_array(imx317->client, imx317_global_regs);
+		if (ret) {
+			v4l2_err(sd, "could not set init registers\n");
+			pm_runtime_put_noidle(&client->dev);
+			goto unlock_and_return;
+		}
+
+		imx317->power_on = true;
+	} else {
+		pm_runtime_put(&client->dev);
+		imx317->power_on = false;
+	}
 
 unlock_and_return:
 	mutex_unlock(&imx317->mutex);
@@ -778,6 +954,7 @@ static const struct v4l2_subdev_internal_ops imx317_internal_ops = {
 #endif
 
 static const struct v4l2_subdev_core_ops imx317_core_ops = {
+	.s_power = imx317_s_power,
 	.ioctl = imx317_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = imx317_compat_ioctl32,
@@ -966,7 +1143,7 @@ static int imx317_check_sensor_id(struct imx317 *imx317,
 			      IMX317_REG_VALUE_08BIT, &id);
 	if (id != CHIP_ID) {
 		dev_err(dev, "Unexpected sensor id(%06x), ret(%d)\n", id, ret);
-		return ret;
+		return -ENODEV;
 	}
 
 	dev_info(dev, "Detected OV%06x sensor\n", CHIP_ID);
@@ -995,6 +1172,11 @@ static int imx317_probe(struct i2c_client *client,
 	struct v4l2_subdev *sd;
 	char facing[2];
 	int ret;
+
+	dev_info(dev, "driver version: %02x.%02x.%02x",
+		DRIVER_VERSION >> 16,
+		(DRIVER_VERSION & 0xff00) >> 8,
+		DRIVER_VERSION & 0x00ff);
 
 	imx317 = devm_kzalloc(dev, sizeof(*imx317), GFP_KERNEL);
 	if (!imx317)

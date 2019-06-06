@@ -17,6 +17,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
+#include <linux/completion.h>
 #include <linux/rk-preisp.h>
 #include <linux/rk-camera-module.h>
 #include <media/v4l2-ctrls.h>
@@ -26,6 +27,12 @@
 
 #define ENABLE_DMA_BUFFER 1
 #define SPI_BUFSIZ  max(32, SMP_CACHE_BYTES)
+
+struct rk1608_power_work {
+	struct work_struct wk;
+	struct rk1608_state *pdata;
+	struct completion work_fin;
+};
 
 /**
  * Rk1608 is used as the Pre-ISP to link on Soc, which mainly has two
@@ -503,13 +510,15 @@ static int rk1608_lsb_w32(struct spi_device *spi, s32 addr, s32 data)
 static int rk1608_msg_init_sensor(struct rk1608_state *pdata,
 				  struct msg_init *msg, int id)
 {
+	u32 idx = pdata->dphy[id]->fmt_inf_idx;
+
 	msg->msg_head.size = sizeof(struct msg_init);
 	msg->msg_head.type = id_msg_init_sensor_t;
 	msg->msg_head.id.camera_id = id;
 	msg->msg_head.mux.sync = 1;
 	msg->in_mipi_phy = pdata->dphy[id]->in_mipi;
 	msg->out_mipi_phy = pdata->dphy[id]->out_mipi;
-	msg->mipi_lane = pdata->dphy[id]->mipi_lane;
+	msg->mipi_lane = pdata->dphy[id]->fmt_inf[idx].mipi_lane;
 	msg->bayer = 0;
 	memcpy(msg->sensor_name, pdata->dphy[id]->sensor_name,
 	       sizeof(msg->sensor_name));
@@ -525,17 +534,19 @@ static int rk1608_msg_set_input_size(struct rk1608_state *pdata,
 {
 	u32 i;
 	u32 msg_size = sizeof(struct msg);
+	u32 idx = pdata->dphy[id]->fmt_inf_idx;
+	struct rk1608_fmt_inf *fmt_inf = &pdata->dphy[id]->fmt_inf[idx];
 
 	for (i = 0; i < 4; i++) {
-		if (pdata->dphy[id]->in_ch[i].width == 0)
+		if (fmt_inf->in_ch[i].width == 0)
 			break;
 
-		msg->channel[i].width = pdata->dphy[id]->in_ch[i].width;
-		msg->channel[i].height = pdata->dphy[id]->in_ch[i].height;
-		msg->channel[i].data_id = pdata->dphy[id]->in_ch[i].data_id;
+		msg->channel[i].width = fmt_inf->in_ch[i].width;
+		msg->channel[i].height = fmt_inf->in_ch[i].height;
+		msg->channel[i].data_id = fmt_inf->in_ch[i].data_id;
 		msg->channel[i].decode_format =
-			pdata->dphy[id]->in_ch[i].decode_format;
-		msg->channel[i].flag = pdata->dphy[id]->in_ch[i].flag;
+			fmt_inf->in_ch[i].decode_format;
+		msg->channel[i].flag = fmt_inf->in_ch[i].flag;
 		msg_size += sizeof(struct preisp_vc_cfg);
 	}
 
@@ -552,17 +563,19 @@ static int rk1608_msg_set_output_size(struct rk1608_state *pdata,
 {
 	u32 i;
 	u32 msg_size = sizeof(struct msg_out_size_head);
+	u32 idx = pdata->dphy[id]->fmt_inf_idx;
+	struct rk1608_fmt_inf *fmt_inf = &pdata->dphy[id]->fmt_inf[idx];
 
 	for (i = 0; i < 4; i++) {
-		if (pdata->dphy[id]->out_ch[i].width == 0)
+		if (fmt_inf->out_ch[i].width == 0)
 			break;
 
-		msg->channel[i].width = pdata->dphy[id]->out_ch[i].width;
-		msg->channel[i].height = pdata->dphy[id]->out_ch[i].height;
-		msg->channel[i].data_id = pdata->dphy[id]->out_ch[i].data_id;
+		msg->channel[i].width = fmt_inf->out_ch[i].width;
+		msg->channel[i].height = fmt_inf->out_ch[i].height;
+		msg->channel[i].data_id = fmt_inf->out_ch[i].data_id;
 		msg->channel[i].decode_format =
-			pdata->dphy[id]->out_ch[i].decode_format;
-		msg->channel[i].flag = pdata->dphy[id]->out_ch[i].flag;
+			fmt_inf->out_ch[i].decode_format;
+		msg->channel[i].flag = fmt_inf->out_ch[i].flag;
 		msg_size += sizeof(struct preisp_vc_cfg);
 	}
 
@@ -570,12 +583,12 @@ static int rk1608_msg_set_output_size(struct rk1608_state *pdata,
 	msg->head.msg_head.type = id_msg_set_output_size_t;
 	msg->head.msg_head.id.camera_id = id;
 	msg->head.msg_head.mux.sync = 1;
-	msg->head.width = pdata->dphy[id]->mf.width;
-	msg->head.height = pdata->dphy[id]->mf.height;
+	msg->head.width = fmt_inf->mf.width;
+	msg->head.height = fmt_inf->mf.height;
 	msg->head.mipi_clk = pdata->dphy[id]->link_freqs;
-	msg->head.line_length_pclk = pdata->dphy[id]->htotal;
-	msg->head.frame_length_lines = pdata->dphy[id]->vtotal;
-	msg->head.mipi_lane = pdata->dphy[id]->mipi_lane;
+	msg->head.line_length_pclk = fmt_inf->htotal;
+	msg->head.frame_length_lines = fmt_inf->vtotal;
+	msg->head.mipi_lane = fmt_inf->mipi_lane;
 
 	return rk1608_send_msg_to_dsp(pdata, &msg->head.msg_head);
 }
@@ -806,6 +819,7 @@ static int rk1608_power_on(struct rk1608_state *pdata)
 	/* After Reset pull-up, CSn should keep low for 2ms+ */
 	usleep_range(3000, 3500);
 	rk1608_cs_set_value(pdata, 1);
+	rk1608_set_spi_speed(pdata, pdata->min_speed_hz);
 	rk1608_lsb_w32(spi, SPI_ENR, 0);
 	rk1608_lsb_w32(spi, SPI_CTRL0,
 		       OPM_SLAVE_MODE | RSD_SEL_2CYC | DFS_SEL_16BIT);
@@ -861,16 +875,34 @@ int rk1608_set_power(struct rk1608_state *pdata, int on)
 	return 0;
 }
 
+static void rk1608_poweron_func(struct work_struct *work)
+{
+	struct rk1608_power_work *pwork = (struct rk1608_power_work *)work;
+
+	rk1608_power_on(pwork->pdata);
+	complete(&pwork->work_fin);
+}
+
 static int rk1608_sensor_power(struct v4l2_subdev *sd, int on)
 {
 	struct rk1608_state *pdata = to_state(sd);
+	struct rk1608_power_work work;
 
 	mutex_lock(&pdata->lock);
 	if (on) {
-		v4l2_subdev_call(pdata->sensor[sd->grp_id], core, s_power, on);
-		if (!pdata->power_count)
-			rk1608_power_on(pdata);
+		if (!pdata->power_count) {
+			INIT_WORK(&work.wk, rk1608_poweron_func);
+			init_completion(&work.work_fin);
+			work.pdata = pdata;
+			schedule_work(&work.wk);
 
+			v4l2_subdev_call(pdata->sensor[sd->grp_id],
+					 core, s_power, on);
+			if (!wait_for_completion_timeout(&work.work_fin,
+					msecs_to_jiffies(1000)))
+				dev_err(pdata->dev,
+					"wait for preisp power on timeout!");
+		}
 	} else if (!on && pdata->power_count == 1) {
 		v4l2_subdev_call(pdata->sensor[sd->grp_id], core, s_power, on);
 		rk1608_power_off(pdata);
@@ -972,6 +1004,21 @@ static int rk1608_g_frame_interval(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int rk1608_set_fmt(struct v4l2_subdev *sd,
+			  struct v4l2_subdev_pad_config *cfg,
+			  struct v4l2_subdev_format *fmt)
+{
+	struct rk1608_state *pdata = to_state(sd);
+
+	v4l2_subdev_call(pdata->sensor[sd->grp_id],
+			 pad,
+			 set_fmt,
+			 cfg,
+			 fmt);
+
+	return 0;
+}
+
 static long rk1608_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	struct rk1608_state *pdata = to_state(sd);
@@ -992,6 +1039,11 @@ static long rk1608_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		    pdata->hdrae_exp.short_exp_reg == hdrae_exp->short_exp_reg &&
 		    pdata->hdrae_exp.short_gain_reg == hdrae_exp->short_gain_reg)
 			break;
+
+		if (!pdata->sensor_cnt) {
+			dev_info(pdata->dev, "set Aec before stream on");
+			break;
+		}
 
 		pdata->hdrae_exp = *hdrae_exp;
 
@@ -1130,9 +1182,14 @@ static const struct v4l2_subdev_core_ops rk1608_core_ops = {
 	.ioctl	 = rk1608_ioctl,
 };
 
+static const struct v4l2_subdev_pad_ops rk1608_subdev_pad_ops = {
+	.set_fmt	= rk1608_set_fmt,
+};
+
 static const struct v4l2_subdev_ops rk1608_subdev_ops = {
 	.core	= &rk1608_core_ops,
 	.video	= &rk1608_subdev_video_ops,
+	.pad	= &rk1608_subdev_pad_ops,
 };
 
 /**
@@ -1558,6 +1615,11 @@ static int rk1608_probe(struct spi_device *spi)
 	struct rk1608_state *rk1608;
 	struct v4l2_subdev *sd;
 	int ret = 0;
+
+	dev_info(&spi->dev, "driver version: %02x.%02x.%02x",
+		 RK1608_VERSION >> 16,
+		 (RK1608_VERSION & 0xff00) >> 8,
+		 RK1608_VERSION & 0x00ff);
 
 	rk1608 = devm_kzalloc(&spi->dev, sizeof(*rk1608), GFP_KERNEL);
 	if (!rk1608)
