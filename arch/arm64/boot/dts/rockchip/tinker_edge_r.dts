@@ -832,6 +832,14 @@
 	};
 };
 
+&i2c6 {
+	status = "disable";
+};
+
+&i2c7 {
+	status = "disable";
+};
+
 &i2c8 {
 	status = "okay";
 	i2c-scl-rising-time-ns = <345>;
@@ -1050,14 +1058,26 @@
 };
 
 &spi1 {
-	status = "okay";
+	status = "disable";
 	max-freq = <48000000>; /* spi internal clk, don't modify */
 	spi_dev@0 {
 		compatible = "rockchip,spidev";
 		reg = <0>;
-		spi-max-frequency = <12000000>;
+		spi-max-frequency = <48000000>;
 		spi-lsb-first;
 	};
+};
+
+&spi5 {
+	status = "disable";
+	max-freq = <48000000>;   //spi internal clk, don't modify
+	spi_dev@0 {
+		compatible = "rockchip,spidev";
+		reg = <0>;   //chip select  0:cs0  1:cs1
+		id = <0>;
+		spi-max-frequency = <48000000>;   //spi output clock
+	};
+
 };
 
 &tcphy0 {
@@ -1103,6 +1123,10 @@
 };
 
 &uart0 {
+	status = "disable";
+};
+
+&uart4 {
 	status = "disable";
 };
 
