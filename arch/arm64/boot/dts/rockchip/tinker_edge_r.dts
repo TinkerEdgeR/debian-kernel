@@ -52,12 +52,6 @@
 			label = "volume up";
 			press-threshold-microvolt = <17000>;
 		};
-
-		/* first 64k(0xff8c0000~0xff8d0000) for ddr and suspend */
-		iram: sram@ff8d0000 {
-			compatible = "mmio-sram";
-			reg = <0x0 0xff8d0000 0x0 0x20000>; /* 128k */
-		};
 	};
 
 	clkin_gmac: external-gmac-clock {
@@ -260,13 +254,8 @@
 	status = "okay";
 };
 
-&dmac_bus {
-	iram = <&iram>;
-	rockchip,force-iram;
-};
-
 &dmc {
-	status = "okay";
+	status = "disabled";
 	center-supply = <&vdd_center>;
 	upthreshold = <40>;
 	downdifferential = <20>;
