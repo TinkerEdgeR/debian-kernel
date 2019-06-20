@@ -134,6 +134,13 @@
 		io-channels = <&saradc 3>;
 	};
 
+	sdhci_pwrseq: sdhci-pwrseq {
+		compatible = "mmc-pwrseq-emmc";
+		pinctrl-0 = <&sdhci_reset>;
+		pinctrl-names = "default";
+		reset-gpios = <&gpio2 RK_PA4 GPIO_ACTIVE_HIGH>;
+	};
+
 	sdio_pwrseq: sdio-pwrseq {
 		compatible = "mmc-pwrseq-simple";
 		clocks = <&rk809 1>;
@@ -1036,6 +1043,10 @@
 	vref-supply = <&vcc_1v8>;
 };
 
+&sdhci {
+	mmc-pwrseq = <&sdhci_pwrseq>;
+};
+
 &sdio0 {
 	status = "okay";
 };
@@ -1240,6 +1251,12 @@
 		soc_slppin_rst: soc-slppin-rst {
 			rockchip,pins =
 				<1 RK_PA5 2 &pcfg_pull_none>;
+		};
+	};
+
+	sdhci-pwrseq {
+		sdhci_reset: sdhci-reset {
+			rockchip,pins = <2 4 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
