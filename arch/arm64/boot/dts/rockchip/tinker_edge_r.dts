@@ -192,6 +192,7 @@
 		pwr-led {
 			gpios = <&gpio0 RK_PA5 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "default-on";
+			retain-state-suspended = <1>;
 		};
 
 		act-led {
