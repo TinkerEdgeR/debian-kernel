@@ -697,8 +697,7 @@ static void dwc3_rockchip_async_probe(void *data, async_cookie_t cookie)
 		rockchip->connected = true;
 
 		if (!rockchip->reset_on_resume &&
-		    (of_machine_is_compatible("rockchip,rk3399") ||
-			of_machine_is_compatible("rockchip,rk3399pro"))) {
+		    of_machine_is_compatible("rockchip,rk3399")) {
 			/*
 			 * RK3399 USB 3.0 PHY is Type-C PHY, needs to
 			 * power on USB 3.0 PHY here in addition to
