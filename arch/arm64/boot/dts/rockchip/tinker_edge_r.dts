@@ -530,7 +530,8 @@
 				regulator-max-microvolt = <900000>;
 				regulator-name = "vcca_0v9";
 				regulator-state-mem {
-					regulator-off-in-suspend;
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <900000>;
 				};
 			};
 
@@ -568,7 +569,8 @@
 
 				regulator-name = "vcca_1v8";
 				regulator-state-mem {
-					regulator-off-in-suspend;
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <1800000>;
 				};
 			};
 
@@ -651,7 +653,8 @@
 
 				regulator-name = "vccio_3v3";
 				regulator-state-mem {
-					regulator-off-in-suspend;
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <3300000>;
 				};
 			};
 		};
@@ -1027,11 +1030,16 @@
 		| RKPM_SLP_DDR_RET
 		| RKPM_SLP_PLLPD
 		| RKPM_SLP_CENTER_PD
-		| RKPM_SLP_OSC_DIS
 		| RKPM_SLP_AP_PWROFF
 		)
 	>;
-	rockchip,wakeup-config = <RKPM_GPIO_WKUP_EN>;
+	rockchip,wakeup-config = <
+		(0
+		| RKPM_GPIO_WKUP_EN
+		| RKPM_USB_WKUP_EN
+		| RKPM_USB_LINESTATE_WKUP_EN
+		)
+	>;
 	rockchip,pwm-regulator-config = <PWM2_REGULATOR_EN>;
 	rockchip,power-ctrl =
 		<&gpio1 RK_PC1 GPIO_ACTIVE_HIGH>,
