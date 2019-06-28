@@ -28,6 +28,7 @@
 #include <linux/module.h>
 #include <linux/of_graph.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/rk-camera-module.h>
 #include <linux/slab.h>
 #include <linux/videodev2.h>
 #include <media/v4l2-ctrls.h>
@@ -104,6 +105,11 @@ struct ov5647_state {
 	struct v4l2_ctrl *anal_gain;
 
 	const struct ov5647_mode *cur_mode;
+
+	u32 module_index;
+	const char *module_facing;
+	const char *module_name;
+	const char *len_name;
 };
 
 struct ov5647_mode {
@@ -244,6 +250,48 @@ static struct regval_list ov5647_1296x972[] = {
 	{REG_NULL, 0x00}
 };
 
+static struct regval_list ov5647_1920x1080[] = {
+	{0x0100, 0x00},
+	{0x3035, 0x21},		/* PLL */
+	{0x3036, 0x60},		/* PLL */
+	{0x303c, 0x11},		/* PLL */
+	{0x3821, 0x06},		/* ISP mirror on, Sensor mirror on, H bin on */
+	{0x3820, 0x40},		/* ISP flip off, Sensor flip off, V bin on */
+	{0x3612, 0x59},		/* analog control */
+	{0x3618, 0x00},		/* analog control */
+	{0x380c, 0x08},		/* HTS = 2100 */
+	{0x380d, 0x34},		/* HTS */
+	{0x380e, 0x04},		/* VTS = 1269 */
+	{0x380f, 0xf5},		/* VTS */
+	{0x3814, 0x11},		/* X INC */
+	{0x3815, 0x11},		/* X INC */
+	{0x3708, 0x64},		/* analog control */
+	{0x3709, 0x52},		/* analog control */
+	{0x3808, 0x07},		/* DVPHO = 1920 */
+	{0x3809, 0x80},		/* DVPHO */
+	{0x380a, 0x04},		/* DVPVO = 1080 */
+	{0x380b, 0x38},		/* DVPVO */
+	{0x3800, 0x01},		/* X Start */
+	{0x3801, 0x4c},		/* X Start */
+	{0x3802, 0x01},		/* Y Start */
+	{0x3803, 0xac},		/* Y Start */
+	{0x3804, 0x08},		/* X End */
+	{0x3805, 0xd3},		/* X End */
+	{0x3806, 0x05},		/* Y End */
+	{0x3807, 0xeb},		/* Y End */
+	/* banding filter */
+	{0x3a08, 0x01},		/* B50 */
+	{0x3a09, 0x27},		/* B50 */
+	{0x3a0a, 0x00},		/* B60 */
+	{0x3a0b, 0xf6},		/* B60 */
+	{0x3a0d, 0x04},		/* B60 max */
+	{0x3a0e, 0x03},		/* B50 max */
+	{0x4004, 0x02},		/* black line number */
+	{0x4837, 0x19},		/* MIPI pclk period */
+	{0x0100, 0x01},
+	{REG_NULL, 0x00}
+};
+
 static struct regval_list ov5647_2592x1944[] = {
 	{0x0100, 0x00},
 	{0x3035, 0x21},
@@ -291,6 +339,14 @@ static const struct ov5647_mode supported_modes[] = {
 	 .hts_def = 0x0768,
 	 .vts_def = 0x058c,
 	 .reg_list = ov5647_1296x972,
+	 },
+	{
+	 .width = 1920,
+	 .height = 1080,
+	 .max_fps = 30,
+	 .hts_def = 0x0834,
+	 .vts_def = 0x04f5,
+	 .reg_list = ov5647_1920x1080,
 	 },
 	{
 	 .width = 2592,
@@ -565,6 +621,33 @@ static int ov5647_sensor_set_register(struct v4l2_subdev *sd,
 }
 #endif
 
+static void ov5647_get_module_inf(struct ov5647_state *ov5647,
+				  struct rkmodule_inf *inf)
+{
+	memset(inf, 0, sizeof(*inf));
+	strlcpy(inf->base.sensor, SENSOR_NAME, sizeof(inf->base.sensor));
+	strlcpy(inf->base.module, ov5647->module_name,
+		sizeof(inf->base.module));
+	strlcpy(inf->base.lens, ov5647->len_name, sizeof(inf->base.lens));
+}
+
+static long ov5647_sensor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
+{
+	struct ov5647_state *ov5647 = to_state(sd);
+	long ret = 0;
+
+	switch (cmd) {
+	case RKMODULE_GET_MODULE_INFO:
+		ov5647_get_module_inf(ov5647, (struct rkmodule_inf *)arg);
+		break;
+	default:
+		ret = -ENOIOCTLCMD;
+		break;
+	}
+
+	return ret;
+}
+
 /**
  * @short Subdev core operations registration
  */
@@ -574,6 +657,7 @@ static const struct v4l2_subdev_core_ops ov5647_subdev_core_ops = {
 	.g_register = ov5647_sensor_get_register,
 	.s_register = ov5647_sensor_set_register,
 #endif
+	.ioctl = ov5647_sensor_ioctl,
 };
 
 static int ov5647_s_stream(struct v4l2_subdev *sd, int enable)
@@ -856,6 +940,7 @@ static int ov5647_probe(struct i2c_client *client,
 	int ret;
 	struct v4l2_subdev *sd;
 	struct device_node *np = client->dev.of_node;
+	char facing[2];
 
 	sensor = devm_kzalloc(dev, sizeof(*sensor), GFP_KERNEL);
 	if (!sensor)
@@ -867,6 +952,19 @@ static int ov5647_probe(struct i2c_client *client,
 			dev_err(dev, "DT parsing error: %d\n", ret);
 			return ret;
 		}
+	}
+
+	ret = of_property_read_u32(np, RKMODULE_CAMERA_MODULE_INDEX,
+					&sensor->module_index);
+	ret |= of_property_read_string(np, RKMODULE_CAMERA_MODULE_FACING,
+					&sensor->module_facing);
+	ret |= of_property_read_string(np, RKMODULE_CAMERA_MODULE_NAME,
+					&sensor->module_name);
+	ret |= of_property_read_string(np, RKMODULE_CAMERA_LENS_NAME,
+					&sensor->len_name);
+	if (ret) {
+		dev_err(dev, "could not get module information!\n");
+		return -EINVAL;
 	}
 
 	/* get system clock (xclk) */
@@ -933,6 +1031,16 @@ static int ov5647_probe(struct i2c_client *client,
 	ret = ov5647_detect(sd);
 	if (ret < 0)
 		goto error;
+
+	memset(facing, 0, sizeof(facing));
+	if (strcmp(sensor->module_facing, "back") == 0)
+		facing[0] = 'b';
+	else
+		facing[0] = 'f';
+
+	snprintf(sd->name, sizeof(sd->name), "m%02d_%s_%s %s",
+		 sensor->module_index, facing,
+		 SENSOR_NAME, dev_name(sd->dev));
 
 	ret = v4l2_async_register_subdev(sd);
 	if (ret < 0)
