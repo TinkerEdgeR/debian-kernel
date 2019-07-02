@@ -363,6 +363,7 @@
 	snps,reset-delays-us = <0 16000 72000>;
 	assigned-clocks = <&cru SCLK_RMII_SRC>;
 	assigned-clock-parents = <&clkin_gmac>;
+	wolirq-gpio = <&gpio3 16 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&rgmii_pins>;
 	tx_delay = <0x23>;
