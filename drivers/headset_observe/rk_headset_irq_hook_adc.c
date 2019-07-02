@@ -35,6 +35,8 @@
 #include <linux/wakelock.h>
 #include <linux/gpio.h>
 
+#include <sound/jack.h>
+#include <sound/soc.h>
 #include <asm/atomic.h>
 
 #include "rk_headset.h"
@@ -166,6 +168,17 @@ static void asus_audio_path_switch_work(struct work_struct *work)
 	return;
 }
 
+static struct snd_soc_jack *hpdet_jack;
+
+void rk_headset_set_jack_detect(struct snd_soc_jack *jack)
+{
+	hpdet_jack = jack;
+
+	/* Send an initial empty report */
+	snd_soc_jack_report(jack, 0, SND_JACK_HEADSET);
+}
+EXPORT_SYMBOL_GPL(rk_headset_set_jack_detect);
+
 //1
 static irqreturn_t headset_interrupt(int irq, void *dev_id)
 {
@@ -284,13 +297,34 @@ static irqreturn_t headset_interrupt(int irq, void *dev_id)
 		else
 			irq_set_irq_type(headset_info->irq[HEADSET],IRQF_TRIGGER_FALLING);
 
-		switch_set_state(&headset_info->sdev, headset_info->cur_headset_status);
-		DBG("headset notice android headset status = %d\n",headset_info->cur_headset_status);
+		switch_set_state(&headset_info->sdev, headset_info->cur_headset_status);	
+		DBG("headset notice android headset status = %d\n",headset_info->cur_headset_status);		
 		if (first_boot == 0)
 			schedule_delayed_work(&headset_info->asus_audio_path_switch,msecs_to_jiffies(5000));
 		else
 			schedule_delayed_work(&headset_info->asus_audio_path_switch,msecs_to_jiffies(100));
-	}
+
+		if (hpdet_jack) {
+			int report_type = 0;
+
+			switch (headset_info->cur_headset_status) {
+			case BIT_HEADSET:
+				report_type = SND_JACK_HEADSET;
+				break;
+			case BIT_HEADSET_NO_MIC:
+				report_type = SND_JACK_HEADPHONE;
+				break;
+			default:
+				break;
+			}
+
+			DBG("%s: report type: 0x%x\n", __func__, report_type);
+
+			snd_soc_jack_report(hpdet_jack,
+					    report_type,
+					    SND_JACK_HEADPHONE);
+		}
+	}	
 //	rk_send_wakeup_key();	
 out:
 	headset_info->heatset_irq_working = IDLE;
@@ -374,6 +408,27 @@ static void hook_once_work(struct work_struct *work)
 	
 	switch_set_state(&headset_info->sdev, headset_info->cur_headset_status);	
 	DBG("%s notice android headset status = %d\n",__func__,headset_info->cur_headset_status);
+
+	if (hpdet_jack) {
+		int report_type = 0;
+
+		switch (headset_info->cur_headset_status) {
+		case BIT_HEADSET:
+			report_type = SND_JACK_HEADSET;
+			break;
+		case BIT_HEADSET_NO_MIC:
+			report_type = SND_JACK_HEADPHONE;
+			break;
+		default:
+			break;
+		}
+
+		DBG("%s: report type: 0x%x\n", __func__, report_type);
+
+		snd_soc_jack_report(hpdet_jack,
+				    report_type,
+				    SND_JACK_HEADPHONE);
+	}
 }
 
 //2
