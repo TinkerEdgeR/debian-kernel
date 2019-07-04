@@ -1073,7 +1073,6 @@
 		compatible = "rockchip,spidev";
 		reg = <0>;
 		spi-max-frequency = <48000000>;
-		spi-lsb-first;
 	};
 };
 
