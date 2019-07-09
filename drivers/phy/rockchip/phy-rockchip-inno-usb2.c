@@ -2042,6 +2042,8 @@ static int rk3399_usb2phy_tuning(struct rockchip_usb2phy *rphy)
 		 */
 		ret |= regmap_write(rphy->grf, 0x4480,
 				    GENMASK(17, 16) | 0x0);
+		ret |= regmap_write(rphy->grf, 0x4480,
+				    GENMASK(20, 19) | 0x18);
 		ret |= regmap_write(rphy->grf, 0x44b4,
 				    GENMASK(17, 16) | 0x0);
 	} else {
