@@ -54,6 +54,12 @@
 		};
 	};
 
+	ADC5-BOARD-ID {
+		compatible = "ADC5-BOARD-ID";
+		io-channels = <&saradc 5>;
+		io-channel-names = "adc5";
+	};
+
 	clkin_gmac: external-gmac-clock {
 		compatible = "fixed-clock";
 		clock-frequency = <125000000>;

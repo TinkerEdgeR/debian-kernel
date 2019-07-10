@@ -179,3 +179,4 @@ obj-$(CONFIG_TEE)		+= tee/
 obj-$(CONFIG_RK_NAND)		+= rk_nand/
 obj-$(CONFIG_RK_HEADSET)	+= headset_observe/
 obj-$(CONFIG_RK_FLASH)		+= rkflash/
+obj-$(CONFIG_BOARDINFO)		+= boardinfo/
