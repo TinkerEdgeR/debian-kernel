@@ -526,6 +526,8 @@ static int rockchip_usb2phy_enable_line_irq(struct rockchip_usb2phy *rphy,
 	if (ret)
 		goto out;
 
+	msleep(5);
+
 	ret = property_enable(rphy->grf, &rport->port_cfg->ls_det_en, en);
 out:
 	return ret;
