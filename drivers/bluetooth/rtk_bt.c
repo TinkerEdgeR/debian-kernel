@@ -35,7 +35,7 @@
 #include "rtk_bt.h"
 #include "rtk_misc.h"
 
-#define VERSION "3.1.a2fd257.20190430-190736"
+#define VERSION "3.1.7a0492d.20190705-103033"
 
 #ifdef BTCOEX
 #include "rtk_coex.h"
@@ -78,6 +78,20 @@ static struct usb_device_id btusb_table[] = {
 		.match_flags = USB_DEVICE_ID_MATCH_VENDOR |
 			USB_DEVICE_ID_MATCH_INT_INFO,
 		.idVendor = 0x0b05,
+		.bInterfaceClass = 0xe0,
+		.bInterfaceSubClass = 0x01,
+		.bInterfaceProtocol = 0x01
+	}, {
+		.match_flags = USB_DEVICE_ID_MATCH_VENDOR |
+			USB_DEVICE_ID_MATCH_INT_INFO,
+		.idVendor = 0x04ca, // for Lite-On WCBN810L-AD module
+		.bInterfaceClass = 0xe0,
+		.bInterfaceSubClass = 0x01,
+		.bInterfaceProtocol = 0x01
+	}, {
+		.match_flags = USB_DEVICE_ID_MATCH_VENDOR |
+			USB_DEVICE_ID_MATCH_INT_INFO,
+		.idVendor = 0x13d3, // for AzureWave AW-CB375NF module
 		.bInterfaceClass = 0xe0,
 		.bInterfaceSubClass = 0x01,
 		.bInterfaceProtocol = 0x01

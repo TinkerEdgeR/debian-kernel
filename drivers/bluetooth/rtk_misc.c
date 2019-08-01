@@ -300,6 +300,10 @@ static patch_info fw_patch_table[] = {
 
 	{0xc82c, 0x8822, "mp_rtl8822cu_fw", "rtl8822cu_fw", "rtl8822cu_config", NULL, 0 }, /* RTL8822CU */
 	{0xc822, 0x8822, "mp_rtl8822cu_fw", "rtl8822cu_fw", "rtl8822cu_config", NULL, 0 }, /* RTL8822CE */
+	{0xb00c, 0x8822, "mp_rtl8822cu_fw", "rtl8822cu_fw", "rtl8822cu_config", NULL, 0 }, /* RTL8822CE */
+	{0xc123, 0x8822, "mp_rtl8822cu_fw", "rtl8822cu_fw", "rtl8822cu_config", NULL, 0 }, /* RTL8822CE */
+	{0x4005, 0x8822, "mp_rtl8822cu_fw", "rtl8822cu_fw", "rtl8822cu_config", NULL, 0 }, /* RTL8822CE for WCBN810L-AD */
+	{0x3548, 0x8822, "mp_rtl8822cu_fw", "rtl8822cu_fw", "rtl8822cu_config", NULL, 0 }, /* RTL8822CE for AW-CB375NF */
 
 	{0x8771, 0x8761, "mp_rtl8761bu_fw", "rtl8761bu_fw", "rtl8761bu_config", NULL, 0}, /* RTL8761BU only */
 
@@ -866,6 +870,10 @@ dev_data *dev_data_find(struct usb_interface * intf)
 				break;
 			case 0xc82c:
 			case 0xc822:
+			case 0xb00c:
+			case 0xc123:
+			case 0x4005:
+			case 0x3548:
 				patch->chip_type = RTL8822CU;
 				break;
 			case 0x8771:

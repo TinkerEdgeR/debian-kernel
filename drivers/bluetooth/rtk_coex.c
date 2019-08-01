@@ -44,17 +44,21 @@
 
 static struct rtl_coex_struct btrtl_coex;
 
+#ifdef RTB_SOFTWARE_MAILBOX
 #ifdef RTK_COEX_OVER_SYMBOL
 static struct sk_buff_head rtw_q;
 static struct workqueue_struct *rtw_wq;
 static struct work_struct rtw_work;
 static u8 rtw_coex_on;
 #endif
+#endif
 
 #define is_profile_connected(profile)   ((btrtl_coex.profile_bitmap & BIT(profile)) > 0)
 #define is_profile_busy(profile)        ((btrtl_coex.profile_status & BIT(profile)) > 0)
 
+#ifdef RTB_SOFTWARE_MAILBOX
 static void rtk_handle_event_from_wifi(uint8_t * msg);
+#endif
 
 static int rtl_alloc_buff(struct rtl_coex_struct *coex)
 {
@@ -1086,6 +1090,8 @@ static void count_hogp_packet_timeout(unsigned long data)
 		  jiffies + msecs_to_jiffies(1000));
 }
 
+#ifdef RTB_SOFTWARE_MAILBOX
+
 #ifndef RTK_COEX_OVER_SYMBOL
 static int udpsocket_send(char *tx_msg, int msg_size)
 {
@@ -1290,7 +1296,7 @@ static void create_udpsocket(void)
 static void rtk_notify_extension_version_to_wifi(void)
 {
 	uint8_t para_length = 2;
-	char p_buf[para_length + HCI_CMD_PREAMBLE_SIZE];
+	char p_buf[2 + HCI_CMD_PREAMBLE_SIZE];
 	char *p = p_buf;
 
 	if (!btrtl_coex.wifi_on)
@@ -1465,6 +1471,8 @@ static void rtk_notify_regester_to_wifi(uint8_t * reg_value)
 		RTKBT_ERR("%s: sock send error", __func__);
 }
 
+#endif
+
 void rtk_btcoex_parse_cmd(uint8_t *buffer, int count)
 {
 	u16 opcode = (buffer[0]) + (buffer[1] << 8);
@@ -1477,10 +1485,14 @@ void rtk_btcoex_parse_cmd(uint8_t *buffer, int count)
 	if ((opcode == HCI_OP_INQUIRY) || (opcode == HCI_OP_PERIODIC_INQ)) {
 		if (!btrtl_coex.isinquirying) {
 			btrtl_coex.isinquirying = 1;
+#ifdef RTB_SOFTWARE_MAILBOX
 			RTKBT_DBG("hci (periodic)inq, notify wifi "
 				  "inquiry start");
 			rtk_notify_btoperation_to_wifi(BT_OPCODE_INQUIRY_START,
 						       0, NULL);
+#else
+			RTKBT_INFO("hci (periodic)inq start");
+#endif
 		}
 	}
 
@@ -1488,19 +1500,27 @@ void rtk_btcoex_parse_cmd(uint8_t *buffer, int count)
 	    || (opcode == HCI_OP_EXIT_PERIODIC_INQ)) {
 		if (btrtl_coex.isinquirying) {
 			btrtl_coex.isinquirying = 0;
+#ifdef RTB_SOFTWARE_MAILBOX
 			RTKBT_DBG("hci (periodic)inq cancel/exit, notify wifi "
 				  "inquiry stop");
 			rtk_notify_btoperation_to_wifi(BT_OPCODE_INQUIRY_END, 0,
 						       NULL);
+#else
+			RTKBT_INFO("hci (periodic)inq cancel/exit");
+#endif
 		}
 	}
 
 	if (opcode == HCI_OP_ACCEPT_CONN_REQ) {
 		if (!btrtl_coex.ispaging) {
 			btrtl_coex.ispaging = 1;
+#ifdef RTB_SOFTWARE_MAILBOX
 			RTKBT_DBG("hci accept connreq, notify wifi page start");
 			rtk_notify_btoperation_to_wifi(BT_OPCODE_PAGE_START, 0,
 						       NULL);
+#else
+			RTKBT_INFO("hci accept conn req");
+#endif
 		}
 	}
 }
@@ -1509,8 +1529,12 @@ static void rtk_handle_inquiry_complete(void)
 {
 	if (btrtl_coex.isinquirying) {
 		btrtl_coex.isinquirying = 0;
+#ifdef RTB_SOFTWARE_MAILBOX
 		RTKBT_DBG("inq complete, notify wifi inquiry end");
 		rtk_notify_btoperation_to_wifi(BT_OPCODE_INQUIRY_END, 0, NULL);
+#else
+		RTKBT_INFO("inquiry complete");
+#endif
 	}
 }
 
@@ -1518,8 +1542,12 @@ static void rtk_handle_pin_code_req(void)
 {
 	if (!btrtl_coex.ispairing) {
 		btrtl_coex.ispairing = 1;
+#ifdef RTB_SOFTWARE_MAILBOX
 		RTKBT_DBG("pin code req, notify wifi pair start");
 		rtk_notify_btoperation_to_wifi(BT_OPCODE_PAIR_START, 0, NULL);
+#else
+		RTKBT_INFO("pin code request");
+#endif
 	}
 }
 
@@ -1527,8 +1555,12 @@ static void rtk_handle_io_capa_req(void)
 {
 	if (!btrtl_coex.ispairing) {
 		btrtl_coex.ispairing = 1;
+#ifdef RTB_SOFTWARE_MAILBOX
 		RTKBT_DBG("io cap req, notify wifi pair start");
 		rtk_notify_btoperation_to_wifi(BT_OPCODE_PAIR_START, 0, NULL);
+#else
+		RTKBT_INFO("io capability request");
+#endif
 	}
 }
 
@@ -1536,8 +1568,12 @@ static void rtk_handle_auth_request(void)
 {
 	if (btrtl_coex.ispairing) {
 		btrtl_coex.ispairing = 0;
+#ifdef RTB_SOFTWARE_MAILBOX
 		RTKBT_DBG("auth req, notify wifi pair end");
 		rtk_notify_btoperation_to_wifi(BT_OPCODE_PAIR_END, 0, NULL);
+#else
+		RTKBT_INFO("authentication request");
+#endif
 	}
 }
 
@@ -1545,8 +1581,12 @@ static void rtk_handle_link_key_notify(void)
 {
 	if (btrtl_coex.ispairing) {
 		btrtl_coex.ispairing = 0;
+#ifdef RTB_SOFTWARE_MAILBOX
 		RTKBT_DBG("link key notify, notify wifi pair end");
 		rtk_notify_btoperation_to_wifi(BT_OPCODE_PAIR_END, 0, NULL);
+#else
+		RTKBT_INFO("link key notify");
+#endif
 	}
 }
 
@@ -1561,6 +1601,7 @@ static void rtk_handle_mode_change_evt(u8 * p)
 	update_hid_active_state(mode_change_handle, mode_interval);
 }
 
+#ifdef RTB_SOFTWARE_MAILBOX
 static void rtk_parse_vendor_mailbox_cmd_evt(u8 * p, u8 total_len)
 {
 	u8 status, subcmd;
@@ -1663,6 +1704,7 @@ static void rtk_parse_vendor_mailbox_cmd_evt(u8 * p, u8 total_len)
 		break;
 	}
 }
+#endif /* RTB_SOFTWARE_MAILBOX */
 
 static void rtk_handle_cmd_complete_evt(u8 total_len, u8 * p)
 {
@@ -1675,10 +1717,14 @@ static void rtk_handle_cmd_complete_evt(u8 total_len, u8 * p)
 	if (opcode == HCI_OP_PERIODIC_INQ) {
 		if (*p++ && btrtl_coex.isinquirying) {
 			btrtl_coex.isinquirying = 0;
+#ifdef RTB_SOFTWARE_MAILBOX
 			RTKBT_DBG("hci period inq, start error, notify wifi "
 				  "inquiry stop");
 			rtk_notify_btoperation_to_wifi(BT_OPCODE_INQUIRY_END, 0,
 						       NULL);
+#else
+			RTKBT_INFO("hci period inquiry start error");
+#endif
 		}
 	}
 
@@ -1695,9 +1741,11 @@ static void rtk_handle_cmd_complete_evt(u8 total_len, u8 * p)
 		}
 	}
 
+#ifdef RTB_SOFTWARE_MAILBOX
 	if (opcode == HCI_VENDOR_MAILBOX_CMD) {
 		rtk_parse_vendor_mailbox_cmd_evt(p, total_len);
 	}
+#endif
 }
 
 static void rtk_handle_cmd_status_evt(u8 * p)
@@ -1712,18 +1760,26 @@ static void rtk_handle_cmd_status_evt(u8 * p)
 	if ((opcode == HCI_OP_INQUIRY) && (status)) {
 		if (btrtl_coex.isinquirying) {
 			btrtl_coex.isinquirying = 0;
+#ifdef RTB_SOFTWARE_MAILBOX
 			RTKBT_DBG("hci inq, start error, notify wifi inq stop");
 			rtk_notify_btoperation_to_wifi(BT_OPCODE_INQUIRY_END, 0,
 						       NULL);
+#else
+			RTKBT_INFO("hci inquiry start error");
+#endif
 		}
 	}
 
 	if (opcode == HCI_OP_CREATE_CONN) {
 		if (!status && !btrtl_coex.ispaging) {
 			btrtl_coex.ispaging = 1;
+#ifdef RTB_SOFTWARE_MAILBOX
 			RTKBT_DBG("hci create conn, notify wifi start page");
 			rtk_notify_btoperation_to_wifi(BT_OPCODE_PAGE_START, 0,
 						       NULL);
+#else
+			RTKBT_INFO("hci create connection, start paging");
+#endif
 		}
 	}
 }
@@ -1742,9 +1798,13 @@ static void rtk_handle_connection_complete_evt(u8 * p)
 	if (status == 0) {
 		if (btrtl_coex.ispaging) {
 			btrtl_coex.ispaging = 0;
+#ifdef RTB_SOFTWARE_MAILBOX
 			RTKBT_DBG("notify wifi page success end");
 			rtk_notify_btoperation_to_wifi
 			    (BT_OPCODE_PAGE_SUCCESS_END, 0, NULL);
+#else
+			RTKBT_INFO("Page success");
+#endif
 		}
 
 		hci_conn = find_connection_by_handle(&btrtl_coex, handle);
@@ -1779,9 +1839,13 @@ static void rtk_handle_connection_complete_evt(u8 * p)
 		}
 	} else if (btrtl_coex.ispaging) {
 		btrtl_coex.ispaging = 0;
+#ifdef RTB_SOFTWARE_MAILBOX
 		RTKBT_DBG("notify wifi page unsuccess end");
 		rtk_notify_btoperation_to_wifi(BT_OPCODE_PAGE_UNSUCCESS_END, 0,
 					       NULL);
+#else
+		RTKBT_INFO("Page failed");
+#endif
 	}
 }
 
@@ -1799,9 +1863,13 @@ static void rtk_handle_le_connection_complete_evt(u8 * p)
 	if (status == 0) {
 		if (btrtl_coex.ispaging) {
 			btrtl_coex.ispaging = 0;
+#ifdef RTB_SOFTWARE_MAILBOX
 			RTKBT_DBG("notify wifi page success end");
 			rtk_notify_btoperation_to_wifi
 			    (BT_OPCODE_PAGE_SUCCESS_END, 0, NULL);
+#else
+			RTKBT_INFO("Page success end");
+#endif
 		}
 
 		hci_conn = find_connection_by_handle(&btrtl_coex, handle);
@@ -1829,9 +1897,13 @@ static void rtk_handle_le_connection_complete_evt(u8 * p)
 		}
 	} else if (btrtl_coex.ispaging) {
 		btrtl_coex.ispaging = 0;
+#ifdef RTB_SOFTWARE_MAILBOX
 		RTKBT_DBG("notify wifi page unsuccess end");
 		rtk_notify_btoperation_to_wifi(BT_OPCODE_PAGE_UNSUCCESS_END, 0,
 					       NULL);
+#else
+		RTKBT_INFO("Page failed");
+#endif
 	}
 }
 
@@ -1903,8 +1975,12 @@ static void rtk_handle_disconnect_complete_evt(u8 * p)
 
 	if (btrtl_coex.ispairing) {	//for slave: connection will be disconnected if authentication fail
 		btrtl_coex.ispairing = 0;
+#ifdef RTB_SOFTWARE_MAILBOX
 		RTKBT_DBG("hci disc complete, notify wifi pair end");
 		rtk_notify_btoperation_to_wifi(BT_OPCODE_PAIR_END, 0, NULL);
+#else
+		RTKBT_INFO("hci disconnection complete");
+#endif
 	}
 
 	status = *p++;
@@ -1950,9 +2026,13 @@ static void rtk_handle_specific_evt(u8 * p)
 
 	STREAM_TO_UINT16(subcode, p);
 	if (subcode == HCI_VENDOR_PTA_AUTO_REPORT_EVENT) {
+#ifdef RTB_SOFTWARE_MAILBOX
 		RTKBT_DBG("notify wifi driver with autoreport data");
 		rtk_notify_info_to_wifi(AUTO_REPORT, RTL_BTINFO_LEN,
 			(uint8_t *)p);
+#else
+		RTKBT_INFO("auto report data");
+#endif
 	}
 }
 
@@ -2458,6 +2538,8 @@ void rtk_btcoex_parse_l2cap_data_rx(uint8_t *buffer, int count)
 	//}
 }
 
+#ifdef RTB_SOFTWARE_MAILBOX
+
 #if LINUX_VERSION_CODE > KERNEL_VERSION(4, 14, 0)
 static void polling_bt_info(struct timer_list *unused)
 #else
@@ -2673,6 +2755,7 @@ static void rtk_handle_event_from_wifi(uint8_t * msg)
 			  "status 0x%02x", wifi_opcode, op_status);
 	}
 }
+#endif /* RTB_SOFTWARE_MAILBOX */
 
 static inline void rtl_free_frags(struct rtl_coex_struct *coex)
 {
@@ -2699,6 +2782,7 @@ void rtk_btcoex_open(struct hci_dev *hdev)
 	//struct rtl_btinfo_ctl ctl;
 
 	INIT_DELAYED_WORK(&btrtl_coex.fw_work, (void *)rtl_ev_work);
+#ifdef RTB_SOFTWARE_MAILBOX
 #ifdef RTK_COEX_OVER_SYMBOL
 	INIT_WORK(&rtw_work, rtw_work_func);
 	skb_queue_head_init(&rtw_q);
@@ -2707,22 +2791,29 @@ void rtk_btcoex_open(struct hci_dev *hdev)
 	INIT_DELAYED_WORK(&btrtl_coex.sock_work,
 			  (void *)udpsocket_recv_data);
 #endif
+#endif /* RTB_SOFTWARE_MAILBOX */
 	INIT_DELAYED_WORK(&btrtl_coex.l2_work, (void *)rtl_l2_work);
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(4, 14, 0)
+#ifdef RTB_SOFTWARE_MAILBOX
 	timer_setup(&btrtl_coex.polling_timer, polling_bt_info, 0);
+#endif
 	timer_setup(&btrtl_coex.a2dp_count_timer, count_a2dp_packet_timeout, 0);
 	timer_setup(&btrtl_coex.pan_count_timer, count_pan_packet_timeout, 0);
 	timer_setup(&btrtl_coex.hogp_count_timer, count_hogp_packet_timeout, 0);
 #else
+#ifdef RTB_SOFTWARE_MAILBOX
 	setup_timer(&btrtl_coex.polling_timer, polling_bt_info, 0);
+#endif
 	setup_timer(&btrtl_coex.a2dp_count_timer, count_a2dp_packet_timeout, 0);
 	setup_timer(&btrtl_coex.pan_count_timer, count_pan_packet_timeout, 0);
 	setup_timer(&btrtl_coex.hogp_count_timer, count_hogp_packet_timeout, 0);
 #endif
 
 	btrtl_coex.hdev = hdev;
+#ifdef RTB_SOFTWARE_MAILBOX
 	btrtl_coex.wifi_on = 0;
+#endif
 
 	init_profile_hash(&btrtl_coex);
 	init_connection_hash(&btrtl_coex);
@@ -2732,10 +2823,12 @@ void rtk_btcoex_open(struct hci_dev *hdev)
 	btrtl_coex.elen = 0;
 	btrtl_coex.tbuff = NULL;
 
+#ifdef RTB_SOFTWARE_MAILBOX
 #ifndef RTK_COEX_OVER_SYMBOL
 	create_udpsocket();
 #endif
 	rtkbt_coexmsg_send(invite_req, sizeof(invite_req));
+#endif
 
 	/* Just for test */
 	//ctl.polling_enable = 1;
@@ -2755,6 +2848,7 @@ void rtk_btcoex_close(void)
 
 	RTKBT_INFO("Close BTCOEX");
 
+#ifdef RTB_SOFTWARE_MAILBOX
 	/* Close coex socket */
 	if (btrtl_coex.wifi_on)
 		rtkbt_coexmsg_send(bt_leave, sizeof(bt_leave));
@@ -2776,6 +2870,8 @@ void rtk_btcoex_close(void)
 		btrtl_coex.polling_enable = 0;
 		del_timer_sync(&(btrtl_coex.polling_timer));
 	}
+#endif /* RTB_SOFTWARE_MAILBOX */
+
 	del_timer_sync(&btrtl_coex.a2dp_count_timer);
 	del_timer_sync(&btrtl_coex.pan_count_timer);
 	del_timer_sync(&btrtl_coex.hogp_count_timer);
@@ -2805,6 +2901,7 @@ void rtk_btcoex_init(void)
 {
 	RTKBT_DBG("%s: version: %s", __func__, RTK_VERSION);
 	RTKBT_DBG("create workqueue");
+#ifdef RTB_SOFTWARE_MAILBOX
 #ifdef RTK_COEX_OVER_SYMBOL
 	RTKBT_INFO("Coex over Symbol");
 	rtw_wq = create_workqueue("btcoexwork");
@@ -2813,6 +2910,7 @@ void rtk_btcoex_init(void)
 	RTKBT_INFO("Coex over UDP");
 	btrtl_coex.sock_wq = create_workqueue("btudpwork");
 #endif
+#endif /* RTB_SOFTWARE_MAILBOX */
 	btrtl_coex.fw_wq = create_workqueue("btfwwork");
 	rtl_alloc_buff(&btrtl_coex);
 	spin_lock_init(&btrtl_coex.rxlock);
@@ -2821,12 +2919,14 @@ void rtk_btcoex_init(void)
 void rtk_btcoex_exit(void)
 {
 	RTKBT_DBG("%s: destroy workqueue", __func__);
+#ifdef RTB_SOFTWARE_MAILBOX
 #ifdef RTK_COEX_OVER_SYMBOL
 	flush_workqueue(rtw_wq);
 	destroy_workqueue(rtw_wq);
 #else
 	flush_workqueue(btrtl_coex.sock_wq);
 	destroy_workqueue(btrtl_coex.sock_wq);
+#endif
 #endif
 	flush_workqueue(btrtl_coex.fw_wq);
 	destroy_workqueue(btrtl_coex.fw_wq);
