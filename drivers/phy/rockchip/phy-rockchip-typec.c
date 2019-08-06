@@ -1411,6 +1411,7 @@ static int rockchip_dp_phy_power_on(struct phy *phy)
 	if (tcphy->mode == new_mode)
 		goto unlock_ret;
 
+retry:
 	/*
 	 * If the PHY has been power on, but the mode is not DP only mode,
 	 * re-init the PHY for setting all of 4 lanes to DP.
@@ -1422,7 +1423,7 @@ static int rockchip_dp_phy_power_on(struct phy *phy)
 		ret = tcphy_phy_init(tcphy, new_mode);
 	}
 	if (ret)
-		goto unlock_ret;
+		goto retry;
 
 	property_enable(tcphy, &cfg->uphy_dp_sel, 1);
 
@@ -1431,7 +1432,9 @@ static int rockchip_dp_phy_power_on(struct phy *phy)
 				 PHY_MODE_SET_TIMEOUT);
 	if (ret < 0) {
 		dev_err(tcphy->dev, "failed to wait TCPHY enter A2\n");
-		goto power_on_finish;
+		if (tcphy->mode == MODE_DISCONNECT)
+			tcphy_phy_deinit(tcphy);
+		goto retry;
 	}
 
 	tcphy_dp_aux_calibration(tcphy);
