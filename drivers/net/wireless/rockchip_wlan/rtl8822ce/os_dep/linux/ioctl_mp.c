@@ -402,7 +402,7 @@ int rtw_mp_stop(struct net_device *dev,
 	if (rtw_mp_cmd(padapter, MP_STOP, RTW_CMDF_WAIT_ACK) != _SUCCESS)
 		ret = -EPERM;
 
-	if (pmppriv->mode != MP_ON)
+	if (pmppriv->mode != MP_OFF)
 		return -EPERM;
 
 	pmppriv->bprocess_mp_mode = _FALSE;
