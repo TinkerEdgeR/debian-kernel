@@ -789,18 +789,18 @@
 		soc_thermal: soc-thermal {
 			polling-delay-passive = <20>; /* milliseconds */
 			polling-delay = <1000>; /* milliseconds */
-			sustainable-power = <1000>; /* milliwatts */
+			sustainable-power = <1875>; /* milliwatts */
 
 			thermal-sensors = <&tsadc 0>;
 
 			trips {
 				threshold: trip-point-0 {
-					temperature = <70000>; /* millicelsius */
+					temperature = <85000>; /* millicelsius */
 					hysteresis = <2000>; /* millicelsius */
 					type = "passive";
 				};
 				target: trip-point-1 {
-					temperature = <85000>; /* millicelsius */
+					temperature = <100000>; /* millicelsius */
 					hysteresis = <2000>; /* millicelsius */
 					type = "passive";
 				};
