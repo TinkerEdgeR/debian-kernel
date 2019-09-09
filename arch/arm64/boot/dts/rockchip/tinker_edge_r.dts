@@ -1031,6 +1031,7 @@
 		| RKPM_SLP_DDR_RET
 		| RKPM_SLP_PLLPD
 		| RKPM_SLP_CENTER_PD
+		| RKPM_SLP_AP_PWROFF
 		)
 	>;
 	rockchip,wakeup-config = <
