@@ -2131,13 +2131,15 @@ static int rockchip_usb2phy_pm_suspend(struct device *dev)
 			}
 		}
 
-		/* activate the linestate to detect the next interrupt. */
-		mutex_lock(&rport->mutex);
-		ret = rockchip_usb2phy_enable_line_irq(rphy, rport, true);
-		mutex_unlock(&rport->mutex);
-		if (ret) {
-			dev_err(rphy->dev, "failed to enable linestate irq\n");
-			return ret;
+		if (strcmp(dev_name(dev), "ff770000.syscon:usb2-phy@e450")) {
+			/* activate the linestate to detect the next interrupt. */
+			mutex_lock(&rport->mutex);
+			ret = rockchip_usb2phy_enable_line_irq(rphy, rport, true);
+			mutex_unlock(&rport->mutex);
+			if (ret) {
+				dev_err(rphy->dev, "failed to enable linestate irq\n");
+				return ret;
+			}
 		}
 
 		/* enter low power state */
