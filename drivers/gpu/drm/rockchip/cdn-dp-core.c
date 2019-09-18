@@ -1486,6 +1486,9 @@ static ssize_t cdn_dp_aux_transfer(struct drm_dp_aux *aux,
 	int ret;
 	u8 status;
 
+	if (!dp->connected)
+		return -EINVAL;
+
 	switch (msg->request & ~DP_AUX_I2C_MOT) {
 	case DP_AUX_NATIVE_WRITE:
 	case DP_AUX_I2C_WRITE:

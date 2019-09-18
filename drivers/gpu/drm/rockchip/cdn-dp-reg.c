@@ -277,7 +277,7 @@ ssize_t cdn_dp_dpcd_write(struct cdn_dp_device *dp, u32 addr, u8 *data, u16 len)
 	u8 reg[CDN_AUX_HEADER_SIZE];
 	int ret;
 
-	if (WARN_ON(len > CDN_AUX_MSG_SIZE) || WARN_ON(len <= 0))
+	if (len > CDN_AUX_MSG_SIZE || len <= 0)
 		return -EINVAL;
 
 	msg[0] = (len >> 8) & 0xff;
