@@ -909,6 +909,12 @@ enum rk809_reg_id {
 #define RK817_BUCK3_FB_RES_INTER	BIT(6)
 #define RK817_BUCK3_FB_RES_EXT		0
 
+/* ldo config */
+#define RK817_LDO_IMAX_MSK		BIT(7)
+#define RK817_LDO_IMAX_NORMAL		0
+#define RK817_LDO_IMAX_130		BIT(7)
+
+
 /* buck config 0xba */
 #define RK817_RAMP_RATE_OFFSET		6
 #define RK817_RAMP_RATE_MASK		(0x3 << RK817_RAMP_RATE_OFFSET)

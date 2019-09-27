@@ -567,13 +567,13 @@
 			vcc0v9_soc: LDO_REG3 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <925000>;
-				regulator-max-microvolt = <925000>;
+				regulator-min-microvolt = <950000>;
+				regulator-max-microvolt = <950000>;
 
 				regulator-name = "vcc0v9_soc";
 				regulator-state-mem {
 					regulator-on-in-suspend;
-					regulator-suspend-microvolt = <925000>;
+					regulator-suspend-microvolt = <950000>;
 				};
 			};
 
