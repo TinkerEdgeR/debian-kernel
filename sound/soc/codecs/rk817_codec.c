@@ -882,7 +882,7 @@ static struct snd_soc_dai_driver rk817_dai[] = {
 
 static int rk817_suspend(struct snd_soc_codec *codec)
 {
-	rk817_codec_power_down(codec, RK817_CODEC_ALL);
+	//rk817_codec_power_down(codec, RK817_CODEC_ALL);
 	return 0;
 }
 
