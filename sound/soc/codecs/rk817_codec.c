@@ -52,6 +52,7 @@ module_param_named(dbg_level, dbg_enable, int, 0644);
  * 0xff: -95dB
  */
 #define OUT_VOLUME	(0x03)
+#define ASUS_SOUND_VOLUME	(0x43)
 
 /*
  * DADC L/R volume setting
@@ -1007,6 +1008,8 @@ static int rk817_codec_parse_dt_property(struct device *dev,
 	if (rk817->spk_volume < 3)
 		rk817->spk_volume = 3;
 
+	rk817->spk_volume = ASUS_SOUND_VOLUME;
+
 	ret = of_property_read_u32(node, "hp-volume",
 				   &rk817->hp_volume);
 	if (ret < 0) {
@@ -1016,6 +1019,8 @@ static int rk817_codec_parse_dt_property(struct device *dev,
 	}
 	if (rk817->hp_volume < 3)
 		rk817->hp_volume = 3;
+
+	rk817->hp_volume = ASUS_SOUND_VOLUME;
 
 	ret = of_property_read_u32(node, "capture-volume",
 				   &rk817->capture_volume);
