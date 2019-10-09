@@ -396,14 +396,11 @@ static int tcpm_get_message(struct fusb30x_chip *chip)
 
 	chip->rec_head_old = chip->rec_head;
 
-	do {
-		regmap_raw_read(chip->regmap, FUSB_REG_FIFO, buf, 3);
-		chip->rec_head = (buf[1] & 0xff) | ((buf[2] << 8) & 0xff00);
+	regmap_raw_read(chip->regmap, FUSB_REG_FIFO, buf, 3);
+	chip->rec_head = (buf[1] & 0xff) | ((buf[2] << 8) & 0xff00);
 
-		len = PD_HEADER_CNT(chip->rec_head) << 2;
-		regmap_raw_read(chip->regmap, FUSB_REG_FIFO, buf, len + 4);
-	/* ignore good_crc message */
-	} while (PACKET_IS_CONTROL_MSG(chip->rec_head, CMT_GOODCRC));
+	len = PD_HEADER_CNT(chip->rec_head) << 2;
+	regmap_raw_read(chip->regmap, FUSB_REG_FIFO, buf, len + 4);
 
 	memcpy(chip->rec_load, buf, len);
 
@@ -851,8 +848,10 @@ static void tcpc_alert(struct fusb30x_chip *chip, u32 *evt)
 		chip->tx_state = tx_success;
 	}
 
-	if ((status1 & STATUS1_RX_EMPTY) == 0)
+	if ((status1 & STATUS1_RX_EMPTY) == 0) {
 		*evt |= EVENT_RX;
+		usleep_range(1000, 1100);
+	}
 
 	if (interrupta & INTERRUPTA_HARDRST) {
 		chip->spec_rev = (chip->spec_rev == 2 ? 1 : 2);
@@ -3004,6 +3003,11 @@ static void state_machine_typec(struct fusb30x_chip *chip)
 
 	if (evt & EVENT_RX) {
 		tcpm_get_message(chip);
+		if (PACKET_IS_CONTROL_MSG(chip->rec_head, CMT_GOODCRC))
+			evt ^= EVENT_RX;
+	}
+
+	if (evt & EVENT_RX) {
 		if (PACKET_IS_CONTROL_MSG(chip->rec_head, CMT_SOFTRESET)) {
 			if (chip->notify.power_role)
 				set_state(chip, policy_src_softrst);
