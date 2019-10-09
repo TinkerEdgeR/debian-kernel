@@ -394,6 +394,8 @@ static int tcpm_get_message(struct fusb30x_chip *chip)
 	u8 buf[32];
 	int len;
 
+	chip->rec_head_old = chip->rec_head;
+
 	do {
 		regmap_raw_read(chip->regmap, FUSB_REG_FIFO, buf, 3);
 		chip->rec_head = (buf[1] & 0xff) | ((buf[2] << 8) & 0xff00);
@@ -814,13 +816,13 @@ static int set_cc_state(int reg)
 
 static void tcpc_alert(struct fusb30x_chip *chip, u32 *evt)
 {
-	int interrupt, interrupta, interruptb;
-	u32 val;
+	int interrupt, interrupta;
+	u32 val, status1;
 	static int retry;
 
 	regmap_read(chip->regmap, FUSB_REG_INTERRUPT, &interrupt);
 	regmap_read(chip->regmap, FUSB_REG_INTERRUPTA, &interrupta);
-	regmap_read(chip->regmap, FUSB_REG_INTERRUPTB, &interruptb);
+	regmap_read(chip->regmap, FUSB_REG_STATUS1, &status1);
 
 	if ((interrupt & INTERRUPT_COMP_CHNG) &&
 	    (CC_STATE_ROLE(chip) != CC_STATE_TOGSS_IS_UFP)) {
@@ -849,7 +851,7 @@ static void tcpc_alert(struct fusb30x_chip *chip, u32 *evt)
 		chip->tx_state = tx_success;
 	}
 
-	if (interruptb & INTERRUPTB_GCRCSENT)
+	if ((status1 & STATUS1_RX_EMPTY) == 0)
 		*evt |= EVENT_RX;
 
 	if (interrupta & INTERRUPTA_HARDRST) {
@@ -2081,6 +2083,14 @@ static void fusb_state_vcs_ufp_evaluate_swap(struct fusb30x_chip *chip, u32 evt)
 static void fusb_state_swap_msg_process(struct fusb30x_chip *chip, u32 evt)
 {
 	if (evt & EVENT_RX) {
+		if ((PACKET_IS_CONTROL_MSG(chip->rec_head, CMT_PR_SWAP) &&
+		     PACKET_IS_CONTROL_MSG(chip->rec_head_old, CMT_PR_SWAP)) ||
+		     (PACKET_IS_CONTROL_MSG(chip->rec_head, CMT_DR_SWAP) &&
+		     PACKET_IS_CONTROL_MSG(chip->rec_head_old, CMT_DR_SWAP))) {
+			dev_info(chip->dev, "Duplicate swap message, ignore.\n");
+			return;
+		}
+
 		if (PACKET_IS_CONTROL_MSG(chip->rec_head, CMT_PR_SWAP)) {
 			set_state(chip, policy_src_prs_evaluate);
 		} else if (PACKET_IS_CONTROL_MSG(chip->rec_head,
@@ -2122,9 +2132,12 @@ static void fusb_state_src_ready(struct fusb30x_chip *chip, u32 evt)
 
 static void fusb_state_prs_evaluate(struct fusb30x_chip *chip, u32 evt)
 {
-	if (chip->role == ROLE_MODE_DRP)
-		set_state(chip, policy_src_prs_accept);
-	else
+	if (chip->role == ROLE_MODE_DRP) {
+		if (chip->notify.power_role)
+			set_state(chip, policy_src_prs_reject);
+		else
+			set_state(chip, policy_snk_prs_accept);
+	} else
 		set_state(chip, policy_src_prs_reject);
 }
 

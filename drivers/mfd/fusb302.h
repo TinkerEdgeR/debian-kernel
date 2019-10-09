@@ -521,6 +521,7 @@ struct fusb30x_chip {
 	u32 rec_load[7];
 	u16 send_head;
 	u16 rec_head;
+	u16 rec_head_old;
 	int msg_id;
 	enum tx_state tx_state;
 	int hardrst_count;
