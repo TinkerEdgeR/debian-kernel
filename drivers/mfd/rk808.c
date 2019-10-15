@@ -810,6 +810,7 @@ static const struct rk808_reg_data rk817_pre_init_reg[] = {
 	{RK817_GPIO_INT_CFG, RK817_INT_POL_MSK, RK817_INT_POL_L},
 	{RK817_SYS_CFG(1), RK817_HOTDIE_TEMP_MSK | RK817_TSD_TEMP_MSK,
 					   RK817_HOTDIE_105 | RK817_TSD_140},
+	{RK817_LDO_ON_VSEL_REG(2), RK817_LDO_IMAX_MSK, RK817_LDO_IMAX_130},
 };
 
 static int (*pm_shutdown)(struct regmap *regmap);
