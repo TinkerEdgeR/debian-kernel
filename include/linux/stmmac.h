@@ -125,5 +125,6 @@ struct plat_stmmacenet_data {
 	void *bsp_priv;
 	int wolirq_io;
 	int wol_irq;
+	int wakeup_enable;
 };
 #endif

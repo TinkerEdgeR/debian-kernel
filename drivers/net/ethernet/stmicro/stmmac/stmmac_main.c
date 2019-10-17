@@ -1810,6 +1810,26 @@ static irqreturn_t wol_io_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+int set_wakeup_enable(int wakeup_enable, struct net_device *dev)
+{
+        struct stmmac_priv *priv = netdev_priv(dev);
+
+        if (!device_can_wakeup(priv->device))
+                return -EINVAL;
+
+        if (wakeup_enable) {
+                pr_info("[WOL] wakeup enable\n");
+                device_set_wakeup_enable(priv->device, 1);
+                enable_irq_wake(priv->wol_irq);
+		mutex_lock(&priv->lock);
+		priv->wolopts = WAKE_MAGIC;
+		mutex_unlock(&priv->lock);
+	}
+
+        return 0;
+
+}
+
 /**
  *  stmmac_open - open entry point of the driver
  *  @dev : pointer to the device structure.
@@ -1919,6 +1939,8 @@ static int stmmac_open(struct net_device *dev)
 		} else {
 			priv->wol_irq = priv->plat->wol_irq;
 		}
+
+		set_wakeup_enable(priv->plat->wakeup_enable,dev);
 	}
 
 	napi_enable(&priv->napi);

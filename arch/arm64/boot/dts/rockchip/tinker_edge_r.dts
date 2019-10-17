@@ -383,6 +383,7 @@
 	pinctrl-0 = <&rgmii_pins>;
 	tx_delay = <0x23>;
 	rx_delay = <0x22>;
+	wakeup-enable = "0";
 	status = "okay";
 };
 
