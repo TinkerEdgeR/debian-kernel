@@ -574,6 +574,9 @@ static int cdn_dp_enable_phy(struct cdn_dp_device *dp, struct cdn_dp_port *port)
 	union extcon_property_value property;
 	int ret;
 
+	DRM_DEV_INFO(dp->dev, "Sleep 2s before cdn_dp_enable_phy\n");
+	msleep(2000);
+
 	if (!port->phy_enabled) {
 		ret = phy_power_on(port->phy);
 		if (ret) {
