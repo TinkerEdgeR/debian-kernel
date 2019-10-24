@@ -26,6 +26,7 @@
 #include <linux/mutex.h>
 #include <linux/random.h>
 #include <linux/pm_qos.h>
+#include <linux/gpio.h>
 
 #include <asm/uaccess.h>
 #include <asm/byteorder.h>
@@ -35,6 +36,7 @@
 
 #define USB_VENDOR_GENESYS_LOGIC		0x05e3
 #define HUB_QUIRK_CHECK_PORT_AUTOSUSPEND	0x01
+#define USB_GPIO_TYPEC_VUBS			153
 
 /* Protect struct usb_device->state and ->children members
  * Note: Both are also protected by ->dev.sem, except that ->state can
@@ -4757,6 +4759,11 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 		if (!udev) {
 			dev_err(&port_dev->dev,
 					"couldn't allocate usb_device\n");
+			if (!strcmp(hdev->serial, "xhci-hcd.10.auto")) {
+				gpio_direction_output(USB_GPIO_TYPEC_VUBS, 0);
+				msleep(100);
+				gpio_direction_output(USB_GPIO_TYPEC_VUBS, 1);
+			}
 			goto done;
 		}
 
