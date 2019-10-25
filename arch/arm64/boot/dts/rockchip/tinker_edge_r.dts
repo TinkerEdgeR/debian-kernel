@@ -75,6 +75,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&uart0_xfer>;
 		interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH 0>;
+		status = "okay";
 	};
 
 	rk809-sound {
