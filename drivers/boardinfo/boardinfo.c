@@ -83,12 +83,14 @@ static int boardinfo_probe(struct platform_device *pdev)
 
 	vresult = vref * raw / ((2 << (bits - 1)) - 1);
 
-	if (vresult < 2000 && vresult > 1600)
-		boardver = "1.00";
-	else if (vresult < 1100 && vresult > 700)
-		boardver = "1.01";
-	else if (vresult < 200)
+	if (vresult < 1900 && vresult > 1700)
 		boardver = "1.02";
+	else if (vresult < 1300 && vresult > 1100)
+		boardver = "1.04";
+	else if (vresult < 1000 && vresult > 800)
+		boardver = "1.01";
+	else if (vresult < 100)
+		boardver = "1.03";
 	else
 		boardver = "unknown";
 
