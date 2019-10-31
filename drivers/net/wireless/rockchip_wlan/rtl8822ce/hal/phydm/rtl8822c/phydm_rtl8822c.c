@@ -22,27 +22,45 @@
  * Larry Finger <Larry.Finger@lwfinger.net>
  *
  *****************************************************************************/
-#ifndef __ODMNOISEMONITOR_H__
-#define __ODMNOISEMONITOR_H__
+#include "mp_precomp.h"
+#include "../phydm_precomp.h"
 
-#define VALID_CNT 5
+#if (RTL8822C_SUPPORT)
+void phydm_dynamic_switch_htstf_agc_8822c(struct dm_struct *dm)
+{
+	u8 ndp_valid_cnt = 0;
+	u8 ndp_valid_cnt_diff = 0;
 
-struct noise_level {
-	u8 value[PHYDM_MAX_RF_PATH];
-	s8 sval[PHYDM_MAX_RF_PATH];
-	s32 sum[PHYDM_MAX_RF_PATH];
-	u8 valid[PHYDM_MAX_RF_PATH];
-	u8 valid_cnt[PHYDM_MAX_RF_PATH];
-};
+	if (dm->bhtstfdisabled)
+		return;
 
-struct odm_noise_monitor {
-	s8 noise[PHYDM_MAX_RF_PATH];
-	s16 noise_all;
-};
+	/*set debug port to 0x51f*/
+	if (phydm_set_bb_dbg_port(dm, DBGPORT_PRI_1, 0x51f)) {
+		ndp_valid_cnt = (u8)(phydm_get_bb_dbg_port_val(dm) & 0xff);
+		phydm_release_bb_dbg_port(dm);
 
-s16 odm_inband_noise_monitor(void *dm_void, u8 is_pause_dig, u8 igi_value,
-			     u32 max_time);
+		ndp_valid_cnt_diff = DIFF_2(dm->ndp_cnt_pre, ndp_valid_cnt);
+		dm->ndp_cnt_pre = ndp_valid_cnt;
 
-void phydm_noisy_detection(void *dm_void);
+		if (ndp_valid_cnt_diff)
+			dm->is_beamformed = true;
+		else
+			dm->is_beamformed = false;
 
+		if (dm->total_tp == 0 || dm->is_beamformed) {
+			odm_set_bb_reg(dm, R_0x8a0, BIT(2), 0x1);
+			dm->no_ndp_cnts = 0;
+		} else {
+			if (dm->no_ndp_cnts == 3)
+				odm_set_bb_reg(dm, R_0x8a0, BIT(2), 0x0);
+			else if (dm->no_ndp_cnts < 3)
+				dm->no_ndp_cnts++;
+		}
+	}
+}
+
+void phydm_hwsetting_8822c(struct dm_struct *dm)
+{
+	phydm_dynamic_switch_htstf_agc_8822c(dm);
+}
 #endif

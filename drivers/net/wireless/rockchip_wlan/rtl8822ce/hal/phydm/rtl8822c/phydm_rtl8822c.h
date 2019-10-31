@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2017 Realtek Corporation.
+ * Copyright(c) 2007 - 2017  Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -8,7 +8,7 @@
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
  * The full GNU General Public License is included in this distribution in the
@@ -22,21 +22,18 @@
  * Larry Finger <Larry.Finger@lwfinger.net>
  *
  *****************************************************************************/
+#if (RTL8822C_SUPPORT)
+#ifndef __ODM_RTL8822C_H__
+#define __ODM_RTL8822C_H__
 
-/*Image2HeaderVersion: R3 1.5.8*/
-#if (RTL8822C_SUPPORT == 1)
-#ifndef __INC_MP_MAC_HW_IMG_8822C_H
-#define __INC_MP_MAC_HW_IMG_8822C_H
+/* 2019.08.20: modify code structure*/
+#define HW_SETTING_VERSION_8822C "1.1"
 
-/******************************************************************************
- *                           mac_reg.TXT
- ******************************************************************************/
+enum phydm_bf_linked {
+	PHYDM_IS_BF_LINKED	= 1,
+	PHYDM_NO_BF_LINKED	= 2,
+};
 
-/* tc: Test Chip, mp: mp Chip*/
-void
-odm_read_and_config_mp_8822c_mac_reg(struct dm_struct *dm);
-u32 odm_get_version_mp_8822c_mac_reg(void);
-
+void phydm_hwsetting_8822c(struct dm_struct *dm);
 #endif
-#endif /* end of HWIMG_SUPPORT*/
-
+#endif
