@@ -361,7 +361,7 @@
 	};
 };
 
-&dp_in_vopl {
+&dp_in_vopb {
 	status = "disabled";
 };
 
