@@ -11,6 +11,7 @@
 
 static char *boardinfo;
 static char *boardver;
+static const char *adc5_bid;
 
 static int info_show(struct seq_file *m, void *v)
 {
@@ -49,50 +50,28 @@ static struct file_operations boardver_ops = {
 static int boardinfo_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	int ret, raw, vref, bits;
-	int vresult;
-	struct iio_channel *channels;
-	const char *channel_name;
 	struct proc_dir_entry* file;
 
 	boardinfo = "Tinker Edge R";
 
-	if (device_property_read_string(dev, "io-channel-names", &channel_name))
-	{
-		printk("[iio] Failed to read io-channel-names");
+	if (device_property_read_string(dev, "boardver", &adc5_bid)) {
+		printk("[boardinfo] Failed to read boardver\n");
 		return -ENODEV;
 	}
 
-	channels = devm_iio_channel_get(dev, channel_name);
-	if (IS_ERR(channels)) {
-		printk("[iio] Failed to get channels\n");
+	if (strcmp(adc5_bid, "-1") == 0) {
+		printk("[uboot/adc] Failed to read channel raw\n");
 		return -ENODEV;
-	} else {
-		ret = iio_read_channel_raw(channels, &raw);
-		if (ret < 0) {
-			printk("[iio] Failed to read channel raw\n");
-			return ret;
-		}
-
-		ret = iio_read_channel_scale(channels, &vref, &bits);
-		if (ret < 0) {
-			printk("[iio] Failed to read channel scale\n");
-			return ret;
-		}
-	}
-
-	vresult = vref * raw / ((2 << (bits - 1)) - 1);
-
-	if (vresult < 1900 && vresult > 1700)
-		boardver = "1.02";
-	else if (vresult < 1300 && vresult > 1100)
-		boardver = "1.04";
-	else if (vresult < 1000 && vresult > 800)
-		boardver = "1.01";
-	else if (vresult < 100)
-		boardver = "1.03";
-	else
+	} else if (strcmp(adc5_bid, "0") == 0)
 		boardver = "unknown";
+	else if (strcmp(adc5_bid, "1") == 0)
+		boardver = "1.01";
+	else if (strcmp(adc5_bid, "2") == 0)
+		boardver = "1.02";
+	else if (strcmp(adc5_bid, "3") == 0)
+		boardver = "1.03";
+	else if (strcmp(adc5_bid, "4") == 0)
+		boardver = "1.04";
 
 	printk("boardinfo = %s\n", boardinfo);
 	printk("boardver = %s\n", boardver);
@@ -107,6 +86,19 @@ static int boardinfo_probe(struct platform_device *pdev)
 
 	return 0;
 }
+
+int boardver_show(void)
+{
+	int bid;
+
+	if (strcmp(adc5_bid, "-1") == 0)
+		return -ENODEV;
+	else {
+		bid = adc5_bid[0] - '0';
+		return bid;
+	}
+}
+EXPORT_SYMBOL_GPL(boardver_show);
 
 #ifdef CONFIG_OF
 static const struct of_device_id of_boardinfo_match[] = {
