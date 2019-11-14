@@ -202,7 +202,7 @@
 		pinctrl-0 = <&uart0_rts>;
 		//pinctrl-1 = <&uart0_gpios>;
 		BT,reset_gpio    = <&gpio2 RK_PD4 GPIO_ACTIVE_HIGH>;
-		BT,wake_gpio     = <&gpio2 RK_PD2 GPIO_ACTIVE_HIGH>;
+		//BT,wake_gpio     = <&gpio2 RK_PD2 GPIO_ACTIVE_HIGH>;
 		//BT,wake_host_irq = <&gpio0 RK_PA5 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
@@ -869,6 +869,7 @@
 		pinctrl-0 = <&fusb0_int>;
 		int-n-gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_HIGH>;
 		vbus-5v-gpios = <&gpio4 RK_PD1 GPIO_ACTIVE_HIGH>;
+		vbus2-5v-gpios = <&gpio2 RK_PD2 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 

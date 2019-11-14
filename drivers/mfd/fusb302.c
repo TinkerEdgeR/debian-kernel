@@ -100,6 +100,7 @@
 
 static u8 fusb30x_port_used;
 static struct fusb30x_chip *fusb30x_port_info[256];
+extern int boardver_show(void);
 
 static bool is_write_reg(struct device *dev, unsigned int reg)
 {
@@ -3336,8 +3337,13 @@ static int fusb_initialize_gpio(struct fusb30x_chip *chip)
 		return PTR_ERR(chip->gpio_int);
 
 	/* some board support vbus with other ways */
-	chip->gpio_vbus_5v = devm_gpiod_get_optional(chip->dev, "vbus-5v",
-						     GPIOD_OUT_LOW);
+	if (boardver_show() >= 2) {
+		chip->gpio_vbus_5v = devm_gpiod_get_optional(chip->dev, "vbus2-5v",
+							     GPIOD_OUT_LOW);
+	} else {
+		chip->gpio_vbus_5v = devm_gpiod_get_optional(chip->dev, "vbus-5v",
+							     GPIOD_OUT_LOW);
+	}
 	if (IS_ERR(chip->gpio_vbus_5v))
 		dev_warn(chip->dev,
 			 "Could not get named GPIO for VBus5V!\n");
