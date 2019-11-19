@@ -171,6 +171,10 @@
 		reset-gpios = <&gpio2 RK_PD3 GPIO_ACTIVE_LOW>;
 	};
 
+	sound-ext-card {
+		status = "disabled";
+	};
+
 	vdd_3v3_reg: fixedregulator_3v3 {
 		compatible = "regulator-fixed";
 		regulator-name = "3v3";
