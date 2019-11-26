@@ -44,6 +44,7 @@
 #define BYPASS_SCHEDULE_DELAY	(2 * HZ)
 
 struct rockchip_usb2phy;
+extern int boardver_show(void);
 
 enum rockchip_usb2phy_port_id {
 	USB2PHY_PORT_OTG,
@@ -2131,7 +2132,7 @@ static int rockchip_usb2phy_pm_suspend(struct device *dev)
 			}
 		}
 
-		if (strcmp(dev_name(dev), "ff770000.syscon:usb2-phy@e450")) {
+		if (strcmp(dev_name(dev), "ff770000.syscon:usb2-phy@e450") || boardver_show() >= 2) {
 			/* activate the linestate to detect the next interrupt. */
 			mutex_lock(&rport->mutex);
 			ret = rockchip_usb2phy_enable_line_irq(rphy, rport, true);
