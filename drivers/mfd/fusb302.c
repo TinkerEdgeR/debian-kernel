@@ -824,6 +824,9 @@ static void tcpc_alert(struct fusb30x_chip *chip, u32 *evt)
 	regmap_read(chip->regmap, FUSB_REG_INTERRUPTA, &interrupta);
 	regmap_read(chip->regmap, FUSB_REG_STATUS1, &status1);
 
+	if (interrupt < 0 || interrupta < 0 || status1 < 0)
+		return;
+
 	if ((interrupt & INTERRUPT_COMP_CHNG) &&
 	    (CC_STATE_ROLE(chip) != CC_STATE_TOGSS_IS_UFP)) {
 		regmap_read(chip->regmap, FUSB_REG_STATUS0, &val);
