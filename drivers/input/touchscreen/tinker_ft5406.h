@@ -5,10 +5,7 @@
 #define LOG_INFO(fmt,arg...) pr_info("tinker-ft5406: %s: "fmt, __func__, ##arg);
 #define LOG_ERR(fmt,arg...) pr_err("tinker-ft5406: %s: "fmt, __func__, ##arg);
 
-#define XY_REVERSE 1
-
-#define SCREEN_WIDTH	800
-#define SCREEN_HEIGHT	480
+#define RETRY_COUNT 10
 
 #define FT_ONE_TCH_LEN	6
 
@@ -57,7 +54,12 @@ struct tinker_ft5406_data {
 	struct ts_event event;
 	struct work_struct ft5406_work;
 
+	int screen_width;
+	int screen_height;
+	int xy_reverse;
+	int is_polling;
 	int known_ids;
+	int retry_count;
 };
 
 #endif

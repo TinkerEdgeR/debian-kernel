@@ -276,6 +276,7 @@ static const struct ili9881c_instr ili9881c_init[] = {
 extern int tinker_mcu_ili9881c_set_bright(int bright, int dsi_id);
 
 extern void tinker_mcu_ili9881c_screen_power_up(int dsi_id);
+extern void tinker_ft5406_start_polling(void);
 
 static inline struct ili9881c *panel_to_ili9881c(struct drm_panel *panel)
 {
@@ -390,6 +391,8 @@ static int ili9881c_prepare(struct drm_panel *panel)
 	tinker_mcu_ili9881c_set_bright(0x9f, ctx->dsi_id);
 	msleep(10);
 	pr_info("COLA:: %s\n", __func__);
+
+	tinker_ft5406_start_polling();
 
 	enable = 1;
 	return 0;
