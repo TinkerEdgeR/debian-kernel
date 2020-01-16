@@ -195,11 +195,12 @@ static int tc358762_disable(struct drm_panel *panel)
 
 	printk("panel disable\n");
 
-	tinker_mcu_set_bright(0x00, p->dsi_id);
-
 	if (p->backlight) {
 		p->backlight->props.power = FB_BLANK_POWERDOWN;
 		backlight_update_status(p->backlight);
+	} else {
+		printk("panel disable: no backlight device\n");
+		tinker_mcu_set_bright(0x00, p->dsi_id);
 	}
 
 	if (p->desc && p->desc->delay.disable)
@@ -296,6 +297,7 @@ static int tc358762_prepare(struct drm_panel *panel)
 	return 0;
 }
 
+extern struct backlight_device * tinker_mcu_get_backlightdev(int dsi_id);
 extern void tinker_mcu_screen_power_up(int dsi_id);
 extern void tinker_ft5406_start_polling(void);
 static int tc358762_enable(struct drm_panel *panel)
@@ -315,7 +317,6 @@ static int tc358762_enable(struct drm_panel *panel)
 		tinker_ft5406_start_polling();
 	}
 
-
 	tc358762_dsi_init(p);
 
 	if (p->desc && p->desc->delay.enable)
@@ -324,9 +325,10 @@ static int tc358762_enable(struct drm_panel *panel)
 	if (p->backlight) {
 		p->backlight->props.power = FB_BLANK_UNBLANK;
 		backlight_update_status(p->backlight);
+	} else {
+		printk("panel enable: no backlight device\n");
+		tinker_mcu_set_bright(0xFF, p->dsi_id);
 	}
-
-	tinker_mcu_set_bright(0xFF, p->dsi_id);
 
 	p->enabled = true;
 
@@ -423,6 +425,14 @@ static int tc358762_mipi_probe(struct mipi_dsi_device *dsi, const struct panel_d
 
 		if (!panel->backlight)
 			return -EPROBE_DEFER;
+	} else {
+		panel->backlight =  tinker_mcu_get_backlightdev(dsi_id);
+		if (!panel->backlight) {
+			printk(" tc358762_mipi_probe get backlight fail, dsi_id=%d\n", dsi_id);
+			return -ENODEV;
+		}
+		panel->backlight->props.brightness = 255;
+		printk(" tc358762_mipi_probe get backligh device tsuccessful\n");
 	}
 
 	ddc = of_parse_phandle(dev->of_node, "ddc-i2c-bus", 0);
@@ -526,13 +536,14 @@ static const struct of_device_id dsi_of_match[] = {
 	{
 		.compatible = "asus,tc358762",
 		.data = &tc358762_bridge
-	}, {
+	},
+	{
 		/* sentinel */
 	}
 };
 MODULE_DEVICE_TABLE(of, dsi_of_match);
 
-static int tc358762_dsi_probe(struct mipi_dsi_device *dsi)
+int tc358762_dsi_probe(struct mipi_dsi_device *dsi)
 {
 	const struct bridge_desc *desc;
 	const struct of_device_id *id;
@@ -542,10 +553,10 @@ static int tc358762_dsi_probe(struct mipi_dsi_device *dsi)
 	int err;
 	int dsi_id;
 
-	id = of_match_node(dsi_of_match, np);
-	if (!id)
-		return -ENODEV;
-
+	//id = of_match_node(dsi_of_match, np);
+	//if (!id)
+	//	return -ENODEV;
+	id = &dsi_of_match[0];
 	desc = id->data;
 
 	if (desc) {
@@ -558,7 +569,7 @@ static int tc358762_dsi_probe(struct mipi_dsi_device *dsi)
 	}
 
 	dsi_id = of_alias_get_id(np->parent, "dsi");
-	printk("find panel: %s at dsi-%d\n", id->compatible, dsi_id);
+	printk("find panel: tc358762_dsi_probe at dsi-%d\n", dsi_id);
 
 	err = tc358762_mipi_probe(dsi, pdesc, dsi_id);
 
@@ -577,7 +588,7 @@ static int tc358762_dsi_probe(struct mipi_dsi_device *dsi)
 	return mipi_dsi_attach(dsi);
 }
 
-static int tc358762_dsi_remove(struct mipi_dsi_device *dsi)
+int tc358762_dsi_remove(struct mipi_dsi_device *dsi)
 {
 	int err;
 
@@ -588,7 +599,7 @@ static int tc358762_dsi_remove(struct mipi_dsi_device *dsi)
 	return tc358762_remove(&dsi->dev);
 }
 
-static void tc358762_dsi_shutdown(struct mipi_dsi_device *dsi)
+void tc358762_dsi_shutdown(struct mipi_dsi_device *dsi)
 {
 	tc358762_shutdown(&dsi->dev);
 }
