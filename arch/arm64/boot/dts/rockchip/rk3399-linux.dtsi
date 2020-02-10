@@ -47,7 +47,7 @@
 	compatible = "rockchip,linux", "rockchip,rk3399";
 
 	chosen {
-		bootargs = "earlycon=uart8250,mmio32,0xff1a0000 swiotlb=1 console=ttyFIQ0 rw root=PARTUUID=614e0000-0000 rootfstype=ext4 rootwait coherent_pool=1m";
+		bootargs = "console=tty0 earlycon=uart8250,mmio32,0xff1a0000 swiotlb=1 console=ttyFIQ0 rw root=PARTUUID=614e0000-0000 rootfstype=ext4 rootwait coherent_pool=1m";
 	};
 
 	reserved-memory {
@@ -163,7 +163,7 @@
 		route_hdmi: route-hdmi {
 			status = "disabled";
 			logo,uboot = "logo.bmp";
-			logo,kernel = "logo_kernel.bmp";
+			//logo,kernel = "logo_kernel.bmp";
 			logo,mode = "center";
 			charge_logo,mode = "center";
 			connect = <&vopl_out_hdmi>;
