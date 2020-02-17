@@ -54,6 +54,8 @@ struct tinker_ft5406_data {
 	struct ts_event event;
 	struct work_struct ft5406_work;
 
+	int i2c_id;
+	int dsi_id;
 	int screen_width;
 	int screen_height;
 	int xy_reverse;
