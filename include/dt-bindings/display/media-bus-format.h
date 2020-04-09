@@ -33,7 +33,7 @@
 
 #define MEDIA_BUS_FMT_FIXED			0x0001
 
-/* RGB - next is	0x1022 */
+/* RGB - next is	0x1024 */
 #define MEDIA_BUS_FMT_RGB444_1X12		0x1016
 #define MEDIA_BUS_FMT_RGB444_2X8_PADHI_BE	0x1001
 #define MEDIA_BUS_FMT_RGB444_2X8_PADHI_LE	0x1002
@@ -67,6 +67,8 @@
 #define MEDIA_BUS_FMT_SRGB888_DUMMY_4X8		0x101f
 #define MEDIA_BUS_FMT_SBGR888_DUMMY_4X8		0x1020
 #define MEDIA_BUS_FMT_SRBG888_DUMMY_4X8		0x1021
+#define MEDIA_BUS_FMT_RGB101010_1X7X5_SPWG	0x1022
+#define MEDIA_BUS_FMT_RGB101010_1X7X5_JEIDA	0x1023
 
 /* YUV (including grey) - next is	0x202c */
 #define MEDIA_BUS_FMT_Y8_1X8			0x2001
@@ -149,5 +151,10 @@
 
 /* HSV - next is	0x6002 */
 #define MEDIA_BUS_FMT_AHSV8888_1X32		0x6001
+
+/* Panel Mirror control */
+#define DRM_MODE_FLAG_XMIRROR                  (1 << 28)
+#define DRM_MODE_FLAG_YMIRROR                  (1 << 29)
+#define DRM_MODE_FLAG_XYMIRROR                 (DRM_MODE_FLAG_XMIRROR | DRM_MODE_FLAG_YMIRROR)
 
 #endif /* __LINUX_MEDIA_BUS_FORMAT_H */

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * xHCI host controller driver
  *
  * Copyright (C) 2008 Intel Corp.

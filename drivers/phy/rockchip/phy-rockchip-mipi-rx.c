@@ -46,6 +46,7 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-subdev.h>
+#include "../../media/platform/rockchip/isp1/regs.h"
 
 #define RK1808_GRF_PD_VI_CON_OFFSET	0x0430
 
@@ -77,6 +78,8 @@
 #define RK3288_PHY_TEST_CTRL1	0x34
 #define RK3288_PHY_SHUTDOWNZ	0x08
 #define RK3288_PHY_RSTZ		0x0c
+#define RK3288_PHY_N_LANES	0x04
+#define RK3288_PHY_RESETN	0x10
 
 #define RK3399_PHY_TEST_CTRL0	0xb4
 #define RK3399_PHY_TEST_CTRL1	0xb8
@@ -261,6 +264,9 @@ enum txrx_reg_id {
 	TXRX_PHY_TEST_CTRL1,
 	TXRX_PHY_SHUTDOWNZ,
 	TXRX_PHY_RSTZ,
+	TXRX_PHY_N_LANES,
+	TXRX_PHY_ENABLECLK,
+	TXRX_PHY_RESETN
 };
 
 struct dphy_reg {
@@ -370,6 +376,8 @@ static const struct txrx_reg rk3288_txrx_regs[] = {
 	[TXRX_PHY_TEST_CTRL1] = TXRX_REG(RK3288_PHY_TEST_CTRL1),
 	[TXRX_PHY_SHUTDOWNZ] = TXRX_REG(RK3288_PHY_SHUTDOWNZ),
 	[TXRX_PHY_RSTZ] = TXRX_REG(RK3288_PHY_RSTZ),
+	[TXRX_PHY_N_LANES] = TXRX_REG(RK3288_PHY_N_LANES),
+	[TXRX_PHY_RESETN] = TXRX_REG(RK3288_PHY_RESETN),
 };
 
 static const struct txrx_reg rk3399_txrx_regs[] = {
@@ -487,6 +495,15 @@ static inline struct mipidphy_priv *to_dphy_priv(struct v4l2_subdev *subdev)
 	return container_of(subdev, struct mipidphy_priv, sd);
 }
 
+static inline void read_grf_reg(struct mipidphy_priv *priv,
+				int index, u32 *val)
+{
+	const struct dphy_reg *reg = &priv->grf_regs[index];
+
+	if (reg->offset)
+		regmap_read(priv->regmap_grf, reg->offset, val);
+}
+
 static inline void write_grf_reg(struct mipidphy_priv *priv,
 				 int index, u8 value)
 {
@@ -495,6 +512,14 @@ static inline void write_grf_reg(struct mipidphy_priv *priv,
 
 	if (reg->offset)
 		regmap_write(priv->regmap_grf, reg->offset, val);
+}
+
+static inline void read_txrx_reg(struct mipidphy_priv *priv, int index, u32 *val)
+{
+	const struct txrx_reg *reg = &priv->txrx_regs[index];
+
+	if (reg->offset)
+		*val = readl(priv->txrx_base_addr + reg->offset);
 }
 
 static inline void write_txrx_reg(struct mipidphy_priv *priv,
@@ -506,36 +531,280 @@ static inline void write_txrx_reg(struct mipidphy_priv *priv,
 		writel(value, priv->txrx_base_addr + reg->offset);
 }
 
-static void mipidphy0_wr_reg(struct mipidphy_priv *priv,
-			     u8 test_code, u8 test_data)
+static u32 mipidphy0_wr_reg(struct mipidphy_priv *priv,
+			    u8 test_code, u8 test_data, bool is_delay)
 {
-	/*
-	 * With the falling edge on TESTCLK, the TESTDIN[7:0] signal content
-	 * is latched internally as the current test code. Test data is
-	 * programmed internally by rising edge on TESTCLK.
+	u32 val = 0x0;
+
+	/* Start to write test code,Set TESTCLK to high */
+	write_grf_reg(priv, GRF_DPHY_RX0_TESTCLK, 0x01);
+
+	/* Set test code into TESTDIN, TESTIN=addr */
+	write_grf_reg(priv, GRF_DPHY_RX0_TESTDIN, test_code & 0xff);
+	/* udelay(1); */
+
+	/* Set TESTEN to high */
+	write_grf_reg(priv, GRF_DPHY_RX0_TESTEN, 0x01);
+	/* udelay(1); */
+
+	/* Set TESTCLK to low, TESTDIN[7:0]
+	 * is latched internally with the falling edge on TESTCLK
 	 */
-	write_grf_reg(priv, GRF_DPHY_RX0_TESTCLK, 1);
-	write_grf_reg(priv, GRF_DPHY_RX0_TESTDIN, test_code);
-	write_grf_reg(priv, GRF_DPHY_RX0_TESTEN, 1);
-	write_grf_reg(priv, GRF_DPHY_RX0_TESTCLK, 0);
-	write_grf_reg(priv, GRF_DPHY_RX0_TESTEN, 0);
+	write_grf_reg(priv, GRF_DPHY_RX0_TESTCLK, 0x0);
+	/* udelay(1); */
+	/* Set TESTEN to low */
+	write_grf_reg(priv, GRF_DPHY_RX0_TESTEN, 0x0);
+
+	/* Set data into TESTDIN, TESTIN=data */
 	write_grf_reg(priv, GRF_DPHY_RX0_TESTDIN, test_data);
-	write_grf_reg(priv, GRF_DPHY_RX0_TESTCLK, 1);
+
+	/* Set TESTCLK to high, test data is programmed internally */
+	write_grf_reg(priv, GRF_DPHY_RX0_TESTCLK, 0x01);
+	if (is_delay)
+		udelay(1);
+
+	read_grf_reg(priv, GRF_DPHY_RX0_TESTDOUT, &val);
+	return val & 0xff;
 }
 
-static void mipidphy1_wr_reg(struct mipidphy_priv *priv, unsigned char addr,
-			     unsigned char data)
+static u32 mipidphy1_wr_reg(struct mipidphy_priv *priv, unsigned char addr,
+			    unsigned char data, bool is_delay)
 {
+	u32 val = 0x0;
+
+	/* Start to write test code,Set TESTCLK to high */
+	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL0, 0x00000002);
+
+	/* Set test code into TESTDIN, TESTIN=addr */
+	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL1, addr & 0xff);
+	/* udelay(1); */
+
+	/* Set TESTEN to high */
+	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL1, (addr & 0xff) | PHY_TESTEN_ADDR);
+	/* udelay(1); */
+
 	/*
-	 * TESTEN =1,TESTDIN=addr
-	 * TESTCLK=0
-	 * TESTEN =0,TESTDIN=data
-	 * TESTCLK=1
+	 * Set TESTCLK to low, TESTDIN[7:0]
+	 * is latched internally with the falling edge on TESTCLK
 	 */
-	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL1, PHY_TESTEN_ADDR | addr);
-	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL0, 0x00);
-	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL1, PHY_TESTEN_DATA | data);
-	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL0, 0x02);
+	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL0, 0x00000000);
+	/* udelay(1); */
+	/* Set TESTEN to low */
+	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL1, ((addr & 0xff) | 0x00000000));
+
+	/* Set data into TESTDIN, TESTIN=data */
+	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL1, ((data & 0xff) | PHY_TESTEN_DATA));
+
+	/* Set TESTCLK to high, test data is programmed internally */
+	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL0, 0x00000002);
+	if (is_delay)
+		udelay(1);
+
+	read_txrx_reg(priv, TXRX_PHY_TEST_CTRL1, &val);
+	return ((val & 0xffff) >> 8);
+}
+
+static int mipidphy0_calibration(struct mipidphy_priv *priv)
+{
+	unsigned char testdin = 0, testdout = 0, aux_tripu = 0;
+	unsigned char aux_tripd = 0, aux_a = 0, aux_b = 0, temp = 0, last_7bit = 0;
+	int aux_a_valid = 0, aux_b_valid = 0;
+	int i, j;
+
+	/* step 1 */
+	testdin = 0x03;
+	testdout = mipidphy0_wr_reg(priv, 0x21, testdin, 1);
+	udelay(1);
+
+	aux_tripu = (testdout & 0x80) >> 7;/* get bit7 */
+	dev_info(priv->dev, ">>phy0 11>>testdin = 0x%x, testout=0x%x, aux_tripu = 0x%x\n",
+		 testdin, testdout, aux_tripu);
+	/* step 2 & step 3 */
+	for (i = 1; i < 8; i++) {/* sweep from 001 to 111 */
+		temp = i;
+		testdin = (testdin & (~0x1c)) | (temp << 2);
+		testdout = mipidphy0_wr_reg(priv, 0x21, testdin, 1);
+		usleep_range(10, 15);
+
+		temp = (testdout & 0x80) >> 7;/* get bit7 */
+		dev_info(priv->dev, ">>phy0 22>>testdin = 0x%x,testout=0x%x,err:0x%x,done:0x%x,re-loop:0x%x\n",
+			 testdin, testdout, (testdout & 0x40) >> 6,
+			 (testdout & 0x20) >> 5, (testdout & 0x1c) >> 2);
+
+		if (i == 1) {
+			last_7bit = temp;
+			aux_a_valid = 0;
+		} else {
+			if (last_7bit != temp) {
+				last_7bit = temp;
+				aux_a_valid = 1;
+			}
+		}
+
+		if (temp != aux_tripu) {
+			aux_a = i;/* save TESTDIN[4:2] */
+			aux_tripu = temp;
+			dev_info(priv->dev, ">>phy0 22-s0>>aux_a = 0x%x, aux_tripu=0x%x\n",
+				 aux_a, aux_tripu);
+		}
+	}
+
+	if (aux_a_valid == 0) {
+		if (aux_tripu == 0) {
+			/* set	TESTDIN[4:2] to 000 */
+			testdin = testdin & (~0x1c);
+			dev_info(priv->dev, ">>phy0 aa>>testdin = 0x%x\n", testdin);
+			mipidphy0_wr_reg(priv, 0x21, testdin, 1);
+		} else if (aux_tripu == 1) {
+			/* set	TESTDIN[4:2] to 111 */
+			testdin = testdin | 0x1c;
+			dev_info(priv->dev, ">>phy0 bb>>testdin = 0x%x\n", testdin);
+			mipidphy0_wr_reg(priv, 0x21, testdin, 1);
+		}
+	}
+
+	/* step 4 */
+	aux_tripd = temp;
+	if (aux_tripd != aux_tripu) {
+		/* set TESTIN[4:2] to 011 */
+		testdin = (testdin | 0xc) & 0xef;
+		mipidphy0_wr_reg(priv, 0x21, testdin, 1);
+		dev_info(priv->dev, "mipi phy0 calibrate fail, testdin:0x%x\n", testdin);
+		goto end;
+	}
+
+	/* step 5 */
+	for (j = 6; j >= 0; j--) {/* sweep from 110 to 000 */
+		temp = j;
+		testdin = (testdin & (~0x1c)) | (temp << 2);
+		testdout = mipidphy0_wr_reg(priv, 0x21, testdin, 1);
+		udelay(1);
+		temp = (testdout & 0x80) >> 7;
+		dev_info(priv->dev, ">>phy0 33>>testdin = 0x%x, testout=0x%x, j =%d",
+			 testdin, testdout, j);
+		if (temp != aux_tripd) {
+			aux_b = j;/* save TESTDIN[4:2] */
+			aux_tripd = temp;
+			aux_b_valid = 1;
+		}
+	}
+
+	/* step 6 */
+	if (aux_b_valid) {
+		if ((aux_a + aux_b) & 0x1)
+			temp = (aux_a + aux_b) / 2 + 1;/* round_max integer */
+		else
+			temp = (aux_a + aux_b) / 2;
+
+		testdin = (testdin & (~0x1c)) | (temp << 2);
+		testdout = mipidphy0_wr_reg(priv, 0x21, testdin, 1);
+		/* udelay(10); */
+		dev_info(priv->dev, ">>phy0 44>>testdin=0x%x, testout=0x%x, aux_a=0x%x,aux_b=0x%x, temp=0x%x\n",
+			 testdin, testdout, aux_a, aux_b, temp);
+	}
+end:
+	return 0;
+}
+
+static int mipidphy1_calibration(struct mipidphy_priv *priv)
+{
+	unsigned char testdin = 0, testdout = 0, aux_tripu = 0;
+	unsigned char aux_tripd = 0, aux_a = 0, aux_b = 0, temp = 0, last_7bit = 0;
+	int aux_a_valid = 0, aux_b_valid = 0;
+	int i, j;
+
+	/* step 1 */
+	testdin = 0x03;
+	testdout = mipidphy1_wr_reg(priv, 0x21, testdin, 1);
+
+	aux_tripu = (testdout & 0x80) >> 7;/* get bit7 */
+	dev_info(priv->dev, ">>11>>testdin=0x%x, testout=0x%x, aux_tripu=0x%x",
+		 testdin, testdout, aux_tripu);
+
+	/* step 2 & step 3 */
+	for (i = 1; i < 8; i++) {/* sweep from 001 to 111 */
+		temp = i;
+		testdin = (testdin & (~0x1c)) | (temp << 2);
+		testdout = mipidphy1_wr_reg(priv, 0x21, testdin, 1);
+		temp = (testdout & 0x80) >> 7;/* get bit7 */
+		dev_info(priv->dev, ">>22>>testdin=0x%x, testout=0x%x, err:0x%x, done:0x%x, re-loop:0x%x, temp:0x%x\n",
+			 testdin, testdout, (testdout & 0x40) >> 6,
+			 (testdout & 0x20) >> 5, (testdout & 0x1c) >> 2,
+			 temp);
+
+		if (i == 1) {
+			last_7bit = temp;
+			aux_a_valid = 0;
+		} else {
+			if (last_7bit != temp) {
+				last_7bit = temp;
+				aux_a_valid = 1;
+			}
+		}
+
+		if (temp != aux_tripu) {
+			aux_a = i;/* save TESTDIN[4:2] */
+			aux_tripu = temp;
+			dev_info(priv->dev, ">>phy1 22-s0>>aux_a=0x%x, aux_tripu=0x%x\n", aux_a, aux_tripu);
+		}
+	}
+
+	if (aux_a_valid == 0) {
+		if (aux_tripu == 0) {
+			testdin = testdin & (~0x1c);
+			dev_info(priv->dev, ">>aa>>testdin = 0x%x", testdin);
+			mipidphy1_wr_reg(priv, 0x21, testdin, 1);
+		} else if (aux_tripu == 1) {
+			testdin = testdin | 0x1c;
+			dev_info(priv->dev, ">>bb>>testdin = 0x%x", testdin);
+			mipidphy1_wr_reg(priv, 0x21, testdin, 1);
+		}
+		goto end;
+	}
+
+	/* step 4 */
+	aux_tripd = temp;
+	if (aux_tripd != aux_tripu) {
+		testdin = (testdin | 0xc) & 0xef;/* set TESTIN[4:2] to 011 */
+		mipidphy1_wr_reg(priv, 0x21, testdin, 0);
+		dev_info(priv->dev, "mipi phy calibrate fail.");
+		goto end;
+	}
+
+	/* step 5 */
+	for (j = 6; j >= 0; j--) {/* sweep from 110 to 000 */
+		temp = j;
+		testdin = (testdin & (~0x1c)) | (temp << 2);
+		testdout = mipidphy1_wr_reg(priv, 0x21, testdin, 1);
+		temp = (testdout & 0x80) >> 7;
+		dev_info(priv->dev, ">>33>>testdin=0x%x, testout=0x%x, err:0x%x, done:0x%x, re-loop:0x%x, temp=%d",
+			 testdin, testdout, (testdout & 0x40) >> 6,
+			 (testdout & 0x20) >> 5, (testdout & 0x1c) >> 2,
+			 temp);
+		if (temp != aux_tripd) {
+			aux_b = j;/* save TESTDIN[4:2] */
+			aux_tripd = temp;
+			aux_b_valid = 1;
+			break;
+		}
+	}
+
+	/* step 6 */
+	if (aux_b_valid) {
+		if ((aux_a + aux_b) & 0x1)
+			temp = (aux_a + aux_b) / 2 + 1; /* round_max integer */
+		else
+			temp = (aux_a + aux_b) / 2;
+
+		testdin = (testdin & (~0x1c)) | (temp << 2);
+		testdout = mipidphy1_wr_reg(priv, 0x21, testdin, 1);
+		dev_info(priv->dev, ">>44>>testdin=0x%x, testout=0x%x, err:0x%x, done:0x%x, re-loop:0x%x, aux_a=0x%x,aux_b = 0x%x, temp = 0x%x",
+			 testdin, testdout, (testdout & 0x40) >> 6,
+			 (testdout & 0x20) >> 5, (testdout & 0x1c) >> 2,
+			 aux_a, aux_b, temp);
+	}
+end:
+	return 0;
 }
 
 static inline void write_csiphy_reg(struct mipidphy_priv *priv,
@@ -548,7 +817,7 @@ static inline void write_csiphy_reg(struct mipidphy_priv *priv,
 }
 
 static inline void read_csiphy_reg(struct mipidphy_priv *priv,
-				    int index, u32 *value)
+				   int index, u32 *value)
 {
 	const struct csiphy_reg *reg = &priv->csiphy_regs[index];
 
@@ -587,6 +856,24 @@ static void csi_mipidphy_wr_ths_settle(struct mipidphy_priv *priv, int hsfreq,
 	write_csiphy_reg(priv, offset, val);
 }
 
+static struct v4l2_subdev *get_remote_sink_dev(struct v4l2_subdev *sd)
+{
+	struct media_pad *local, *remote;
+	struct media_entity *sink_me;
+
+	local = &sd->entity.pads[MIPI_DPHY_RX_PAD_SOURCE];
+	remote = media_entity_remote_pad(local);
+	if (!remote) {
+		v4l2_warn(sd, "No link between dphy and cif or isp\n");
+
+		return NULL;
+	}
+
+	sink_me = media_entity_remote_pad(local)->entity;
+
+	return media_entity_to_v4l2_subdev(sink_me);
+}
+
 static struct v4l2_subdev *get_remote_sensor(struct v4l2_subdev *sd)
 {
 	struct media_pad *local, *remote;
@@ -608,9 +895,10 @@ static struct mipidphy_sensor *sd_to_sensor(struct mipidphy_priv *priv,
 {
 	int i;
 
-	for (i = 0; i < priv->num_sensors; ++i)
+	for (i = 0; i < priv->num_sensors; ++i) {
 		if (priv->sensors[i].sd == sd)
 			return &priv->sensors[i];
+	}
 
 	return NULL;
 }
@@ -721,6 +1009,17 @@ static int mipidphy_s_stream(struct v4l2_subdev *sd, int on)
 		return mipidphy_s_stream_stop(sd);
 }
 
+static int mipidphy_g_frame_interval(struct v4l2_subdev *sd,
+				     struct v4l2_subdev_frame_interval *fi)
+{
+	struct v4l2_subdev *sensor = get_remote_sensor(sd);
+
+	if (sensor)
+		return v4l2_subdev_call(sensor, video, g_frame_interval, fi);
+
+	return -EINVAL;
+}
+
 static int mipidphy_g_mbus_config(struct v4l2_subdev *sd,
 				  struct v4l2_mbus_config *config)
 {
@@ -728,8 +1027,10 @@ static int mipidphy_g_mbus_config(struct v4l2_subdev *sd,
 	struct v4l2_subdev *sensor_sd = get_remote_sensor(sd);
 	struct mipidphy_sensor *sensor = sd_to_sensor(priv, sensor_sd);
 
-	mipidphy_update_sensor_mbus(sd);
-	*config = sensor->mbus;
+	if (sensor_sd) {
+		mipidphy_update_sensor_mbus(sd);
+		*config = sensor->mbus;
+	}
 
 	return 0;
 }
@@ -806,6 +1107,7 @@ static const struct v4l2_subdev_core_ops mipidphy_core_ops = {
 };
 
 static const struct v4l2_subdev_video_ops mipidphy_video_ops = {
+	.g_frame_interval = mipidphy_g_frame_interval,
 	.g_mbus_config = mipidphy_g_mbus_config,
 	.s_stream = mipidphy_s_stream,
 };
@@ -918,7 +1220,15 @@ static int mipidphy_rx_stream_on(struct mipidphy_priv *priv,
 	const struct dphy_drv_data *drv_data = priv->drv_data;
 	const struct hsfreq_range *hsfreq_ranges = drv_data->hsfreq_ranges;
 	int num_hsfreq_ranges = drv_data->num_hsfreq_ranges;
-	int i, hsfreq = 0;
+	struct v4l2_subdev *sink_sd = get_remote_sink_dev(sd);
+	struct rkisp1_device *isp_dev;
+	void __iomem *isp_mipi_ctrl;
+	int i, hsfreq = 0, bias_current = 2;
+	unsigned int low_byte, hig_byte;
+	u32 ret_val, mipi_ctrl;
+
+	isp_dev = (struct rkisp1_device *)v4l2_get_subdevdata(sink_sd);
+	isp_mipi_ctrl = isp_dev->base_addr +  CIF_MIPI_CTRL;
 
 	for (i = 0; i < num_hsfreq_ranges; i++) {
 		if (hsfreq_ranges[i].range_h >= priv->data_rate_mbps) {
@@ -939,8 +1249,10 @@ static int mipidphy_rx_stream_on(struct mipidphy_priv *priv,
 
 	/* Belowed is the sequence of mipi configuration */
 	/* Step1: set RSTZ = 1'b0, phy0 controlled by isp0 */
-
 	/* Step2: set SHUTDOWNZ = 1'b0, controlled by isp0 */
+	mipi_ctrl = readl(isp_mipi_ctrl);
+	mipi_ctrl &= 0xfffff0ff;
+	writel(mipi_ctrl, isp_mipi_ctrl);
 
 	/* Step3: set TESTCLEAR = 1'b1 */
 	write_grf_reg(priv, GRF_DPHY_RX0_TESTCLK, 1);
@@ -956,46 +1268,91 @@ static int mipidphy_rx_stream_on(struct mipidphy_priv *priv,
 	/* Step7: set BASEDIR_N = 1’b1 (for SLAVE), phy0 default is slave */
 
 	/*
-	 * Step8: set all REQUEST inputs to zero, need to wait 15ns:
+	 * Step8: set all REQUEST inputs to zero, need to wait for taking effective:
 	 * step8.1:set lan turndisab as 1
 	 * step8.2:set lan turnrequest as 0
 	 */
 	write_grf_reg(priv, GRF_DPHY_RX0_TURNDISABLE, 0xf);
 	write_grf_reg(priv, GRF_DPHY_RX0_FORCERXMODE, 0);
 	write_grf_reg(priv, GRF_DPHY_RX0_TURNREQUEST, 0);
+
+	/* Step9: Wait for taking effective */
 	usleep_range(100, 150);
 
-	/* Step9: set TESTCLR to low, need to wait 15ns */
+	/* Step10: set TESTCLR to low, need to wait for taking effective */
 	write_grf_reg(priv, GRF_DPHY_RX0_TESTCLR, 0);
+	/* Step11: Wait for taking effective */
 	usleep_range(100, 150);
 
 	/*
-	 * Step10: configure Test Code 0x44 hsfreqrange according to values
-	 * step10.1:set clock lane
-	 * step10.2:set hsfreqrange by lane0(test code 0x44)
+	 * Step12: configure Test Code 0x44 hsfreqrange according to values
+	 * step12.1:set clock lane
+	 * step12.2:set hsfreqrange by lane0(test code 0x44)
 	 */
 	hsfreq <<= 1;
-	mipidphy0_wr_reg(priv, CLOCK_LANE_HS_RX_CONTROL, 0);
-	mipidphy0_wr_reg(priv, LANE0_HS_RX_CONTROL, hsfreq);
-	mipidphy0_wr_reg(priv, LANE1_HS_RX_CONTROL, hsfreq);
-	mipidphy0_wr_reg(priv, LANE2_HS_RX_CONTROL, hsfreq);
-	mipidphy0_wr_reg(priv, LANE3_HS_RX_CONTROL, hsfreq);
+	mipidphy0_wr_reg(priv, CLOCK_LANE_HS_RX_CONTROL, 0, true);
+	mipidphy0_wr_reg(priv, LANE0_HS_RX_CONTROL, hsfreq, true);
+	mipidphy0_wr_reg(priv, LANE1_HS_RX_CONTROL, hsfreq, true);
+	mipidphy0_wr_reg(priv, LANE2_HS_RX_CONTROL, hsfreq, true);
+	mipidphy0_wr_reg(priv, LANE3_HS_RX_CONTROL, hsfreq, true);
 
-	/* Step11: Configure analog references: of Test Code 0x22 */
+	/* Step13: Configure analog references: of Test Code 0x22 */
+	if (priv->data_rate_mbps >= 875) {
+		bias_current = 0x01;
+		low_byte = (0x7f & (bias_current << 6)); /* 0x45 */
+		ret_val = mipidphy0_wr_reg(priv, 0x22, low_byte, true);
+		dev_info(priv->dev, "set test code[0x22] bit6:0:0x%x", ret_val);
 
-	/* Step12: Set ENABLE_N=1'b1, need to wait 5ns */
-	/* set lane num */
-	write_grf_reg(priv, GRF_DPHY_RX0_ENABLE, GENMASK(sensor->lanes - 1, 0));
+		hig_byte = 0x88;
+		ret_val = mipidphy0_wr_reg(priv, 0x22, hig_byte, true);
+		dev_info(priv->dev, "set test code[0x22] bit10:7:0x%x", ret_val);
+	}
 
-	/* Step13: Set SHUTDOWNZ=1'b1, controlled by isp need to wait 5ns */
-
-	/* Step14: Set RSTZ=1'b1, controlled by isp */
+	/* Step14: Set ENABLE_N=1'b1, need to wait for taking effective */
+	/*
+	 * Step14.1: Enableclk by isp0 with isp_mipi_ctrl[18]
+	 */
+	 mipi_ctrl = readl(isp_mipi_ctrl);
+	 mipi_ctrl &= 0xfffbffff;
+	 mipi_ctrl |= 0x00040000;
 
 	/*
-	 * Step15: Wait until STOPSTATEDATA_N & STOPSTATECLK
+	 * Step14.2: set lane num, controlled by isp
+	 *		 with isp_mipi_ctrl[13:12] Set ENABLE_N=1'b1,
+	 *		 controlled by isp0 with grf_soc_con21[0:3]
+	 */
+	write_grf_reg(priv, GRF_DPHY_RX0_ENABLE, GENMASK(sensor->lanes - 1, 0));
+
+	if (sensor->lanes == 4)
+		mipi_ctrl |= 0x00003000;
+	else if (sensor->lanes == 3)
+		mipi_ctrl |= 0x00002000;
+	else if (sensor->lanes == 2)
+		mipi_ctrl |= 0x00001000;
+	else if (sensor->lanes == 1)
+		mipi_ctrl &= 0xffff0fff;
+	writel(mipi_ctrl, isp_mipi_ctrl);
+
+	/* Step15: Wait for taking effective */
+	usleep_range(100, 150);
+
+	/* Step16: Set SHUTDOWNZ=1'b1, controlled by isp need to wait for taking effective */
+
+	/* Step17: Wait for taking effective */
+
+	/* Step18: Set RSTZ=1'b1, controlled by isp */
+	mipi_ctrl = readl(isp_mipi_ctrl);
+	mipi_ctrl |= 0x00000f00;
+	writel(mipi_ctrl, isp_mipi_ctrl);
+
+	/* Step19: d-phy calibration */
+	if (priv->data_rate_mbps >= 875)
+		mipidphy0_calibration(priv);
+
+	/*
+	 * Step20: Wait until STOPSTATEDATA_N & STOPSTATECLK
 	 *         outputs are asserted
 	 */
-
 	usleep_range(100, 150);
 
 	return 0;
@@ -1005,11 +1362,29 @@ static int mipidphy_txrx_stream_on(struct mipidphy_priv *priv,
 				   struct v4l2_subdev *sd)
 {
 	struct v4l2_subdev *sensor_sd = get_remote_sensor(sd);
+	struct v4l2_subdev *sink_sd = get_remote_sink_dev(sd);
 	struct mipidphy_sensor *sensor = sd_to_sensor(priv, sensor_sd);
 	const struct dphy_drv_data *drv_data = priv->drv_data;
 	const struct hsfreq_range *hsfreq_ranges = drv_data->hsfreq_ranges;
 	int num_hsfreq_ranges = drv_data->num_hsfreq_ranges;
-	int i, hsfreq = 0;
+	int i, hsfreq = 0, bias_current = 2;
+	struct rkisp1_device *isp_dev;
+	void __iomem *isp_mipi_ctrl;
+	unsigned int low_byte, hig_byte;
+	bool is_linked_isp;
+	u32 mipi_ctrl;
+	u8 ret_val;
+
+	if (strstr(sink_sd->name, "csi2"))
+		is_linked_isp = false;
+	else
+		is_linked_isp = true;
+
+	if (is_linked_isp) {
+		isp_dev = v4l2_get_subdevdata(sink_sd);
+		isp_mipi_ctrl = isp_dev->base_addr +  CIF_MIPI_CTRL;
+		mipi_ctrl = readl(isp_mipi_ctrl);
+	}
 
 	for (i = 0; i < num_hsfreq_ranges; i++) {
 		if (hsfreq_ranges[i].range_h >= priv->data_rate_mbps) {
@@ -1033,7 +1408,10 @@ static int mipidphy_txrx_stream_on(struct mipidphy_priv *priv,
 	 */
 	write_grf_reg(priv, GRF_CON_ISP_DPHY_SEL, 1);
 	write_grf_reg(priv, GRF_DSI_CSI_TESTBUS_SEL, 1);
-	write_grf_reg(priv, GRF_DPHY_RX1_SRC_SEL, 1);
+	if (is_linked_isp)
+		write_grf_reg(priv, GRF_DPHY_RX1_SRC_SEL, 1);
+	else
+		write_grf_reg(priv, GRF_DPHY_RX1_SRC_SEL, 0);
 
 	/*
 	 * Config rk3399：
@@ -1045,6 +1423,14 @@ static int mipidphy_txrx_stream_on(struct mipidphy_priv *priv,
 	/* Step1: set RSTZ = 1'b0, phy1-rx controlled by isp */
 
 	/* Step2: set SHUTDOWNZ = 1'b0, phy1-rx controlled by isp */
+	if (!is_linked_isp) {
+		write_txrx_reg(priv, TXRX_PHY_RSTZ, 0);
+		write_txrx_reg(priv, TXRX_PHY_SHUTDOWNZ, 0);
+	} else {
+		mipi_ctrl = readl(isp_mipi_ctrl);
+		mipi_ctrl &= 0xfffff0ff;
+		writel(mipi_ctrl, isp_mipi_ctrl);
+	}
 
 	/* Step3: set TESTCLR= 1'b1,TESTCLK=1'b1 */
 	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL0, PHY_TESTCLR | PHY_TESTCLK);
@@ -1066,33 +1452,46 @@ static int mipidphy_txrx_stream_on(struct mipidphy_priv *priv,
 	 */
 	write_grf_reg(priv, GRF_DPHY_TX1RX1_BASEDIR, 1);
 
-	/* Step8: set all REQUEST inputs to zero, need to wait 15ns */
+	/* Step8: set all REQUEST inputs to zero, need to wait to take effective */
 	write_grf_reg(priv, GRF_DPHY_TX1RX1_FORCERXMODE, 0);
 	write_grf_reg(priv, GRF_DPHY_TX1RX1_FORCETXSTOPMODE, 0);
 	write_grf_reg(priv, GRF_DPHY_TX1RX1_TURNREQUEST, 0);
 	write_grf_reg(priv, GRF_DPHY_TX1RX1_TURNDISABLE, 0xf);
+	/* Step9: Wait for taking effective */
 	usleep_range(100, 150);
 
-	/* Step9: set TESTCLR=1'b0,TESTCLK=1'b1 need to wait 15ns */
+	/* Step10: set TESTCLR=1'b0,TESTCLK=1'b1 need to wait to take effective */
 	write_txrx_reg(priv, TXRX_PHY_TEST_CTRL0, PHY_TESTCLK);
+
+	/* Step11: Wait for taking effective */
 	usleep_range(100, 150);
 
 	/*
-	 * Step10: configure Test Code 0x44 hsfreqrange according to values
-	 * step10.1:set clock lane
-	 * step10.2:set hsfreqrange by lane0(test code 0x44)
+	 * Step12: configure Test Code 0x44 hsfreqrange according to values
+	 * step12.1:set clock lane
+	 * step12.2:set hsfreqrange by lane0(test code 0x44)
 	 */
 	hsfreq <<= 1;
-	mipidphy1_wr_reg(priv, CLOCK_LANE_HS_RX_CONTROL, 0);
-	mipidphy1_wr_reg(priv, LANE0_HS_RX_CONTROL, hsfreq);
-	mipidphy1_wr_reg(priv, LANE1_HS_RX_CONTROL, 0);
-	mipidphy1_wr_reg(priv, LANE2_HS_RX_CONTROL, 0);
-	mipidphy1_wr_reg(priv, LANE3_HS_RX_CONTROL, 0);
+	mipidphy1_wr_reg(priv, CLOCK_LANE_HS_RX_CONTROL, 0, true);
+	mipidphy1_wr_reg(priv, LANE0_HS_RX_CONTROL, hsfreq, true);
+	mipidphy1_wr_reg(priv, LANE1_HS_RX_CONTROL, 0, true);
+	mipidphy1_wr_reg(priv, LANE2_HS_RX_CONTROL, 0, true);
+	mipidphy1_wr_reg(priv, LANE3_HS_RX_CONTROL, 0, true);
 
-	/* Step11: Configure analog references: of Test Code 0x22 */
+	/* Step13: Configure analog references: of Test Code 0x22 */
+	if (priv->data_rate_mbps >= 875) {
+		bias_current = 0x01;
+		low_byte = (0x7f & (bias_current << 6)); /* 0x45 */
+		ret_val = mipidphy1_wr_reg(priv, 0x22, low_byte, true);
+		dev_info(priv->dev, "set test code[0x22] bit6:0:0x%x", ret_val);
+
+		hig_byte = 0x88;
+		ret_val = mipidphy1_wr_reg(priv, 0x22, hig_byte, true);
+		dev_info(priv->dev, "set test code[0x22] bit10:7:0x%x", ret_val);
+	}
 
 	/*
-	 * Step12: Set ENABLE_N=1'b1, need to wait 5ns
+	 * Step14: Set ENABLE_N=1'b1, need to wait 5ns
 	 * Set lane num:
 	 * for 3288,controlled by isp,enable lanes actually
 	 * is set by grf_soc_con9[12:15];
@@ -1100,21 +1499,68 @@ static int mipidphy_txrx_stream_on(struct mipidphy_priv *priv,
 	 * is set by isp1,
 	 * if run 3399 here operates grf_soc_con23[0:3]
 	 */
-	write_grf_reg(priv, GRF_DPHY_TX1RX1_ENABLE,
-		      GENMASK(sensor->lanes - 1, 0));
+	if (is_linked_isp) {
+		mipi_ctrl = readl(isp_mipi_ctrl);
+
+		/*
+		 * Step15.1: Set ENABLE_N=1'b1, controlled by isp
+		 *			 with isp_mipi_ctrl[18]
+		 */
+		mipi_ctrl &= 0xfffbffff;
+		mipi_ctrl |= 0x00040000;
+
+		/*
+		 * Step15.2: set lane num, controlled by isp
+		 *			with isp_mipi_ctrl[13:12]
+		 */
+		if (sensor->lanes == 4)
+			mipi_ctrl |= 0x00003000;
+		else if (sensor->lanes == 3)
+			mipi_ctrl |= 0x00002000;
+		else if (sensor->lanes == 2)
+			mipi_ctrl |= 0x00001000;
+		else if (sensor->lanes == 1)
+			mipi_ctrl &= 0xffff0fff;
+
+		writel(mipi_ctrl, isp_mipi_ctrl);
+
+		write_grf_reg(priv, GRF_DPHY_TX1RX1_ENABLE,
+			      GENMASK(sensor->lanes - 1, 0));
+	} else {
+		write_grf_reg(priv, GRF_DPHY_TX1RX1_ENABLECLK, 1);
+		write_txrx_reg(priv, TXRX_PHY_N_LANES, sensor->lanes - 1);
+	}
+
+	/* Step15: Wait for taking effective */
+	usleep_range(100, 150);
 
 	/*
-	 * Step13:Set SHUTDOWNZ=1'b1, phy1-rx controlled by isp,
-	 *        need to wait 5ns
+	 * Step16:Set SHUTDOWNZ=1'b1, phy1-rx controlled by isp,
+	 *        need to wait to take effective
 	 */
 
-	/* Step14:Set RSTZ=1'b1, phy1-rx controlled by isp*/
+	/* Step17: Wait for taking effective */
+	/* Step18:Set RSTZ=1'b1, phy1-rx controlled by isp*/
+	if (!is_linked_isp) {
+		write_txrx_reg(priv, TXRX_PHY_SHUTDOWNZ, 1);
+		usleep_range(100, 150);
+		write_txrx_reg(priv, TXRX_PHY_RSTZ, 1);
+		write_txrx_reg(priv, TXRX_PHY_RESETN, 1);
+	} else {
+		mipi_ctrl = readl(isp_mipi_ctrl);
+		mipi_ctrl |= 0x00000f00;
+		writel(mipi_ctrl, isp_mipi_ctrl);
+		dev_info(priv->dev, "enable mipi phy mipi_ctrl:0x%x\n", mipi_ctrl);
+	}
+
+	/* Step19: d-phy calibration */
+	if (priv->data_rate_mbps >= 875)
+		mipidphy1_calibration(priv);
 
 	/*
-	 * Step15:Wait until STOPSTATEDATA_N & STOPSTATECLK
+	 * Step20:Wait until STOPSTATEDATA_N & STOPSTATECLK
 	 *        outputs are asserted
 	 */
-
 	usleep_range(100, 150);
 
 	return 0;
@@ -1137,8 +1583,9 @@ static int csi_mipidphy_stream_on(struct mipidphy_priv *priv,
 
 	/* set data lane num and enable clock lane */
 	write_csiphy_reg(priv, CSIPHY_CTRL_LANE_ENABLE,
-		((GENMASK(sensor->lanes - 1, 0) << MIPI_CSI_DPHY_CTRL_DATALANE_ENABLE_OFFSET_BIT) |
-		(0x1 << MIPI_CSI_DPHY_CTRL_CLKLANE_ENABLE_OFFSET_BIT) | 0x1));
+			 ((GENMASK(sensor->lanes - 1, 0) <<
+			  MIPI_CSI_DPHY_CTRL_DATALANE_ENABLE_OFFSET_BIT) |
+			  (0x1 << MIPI_CSI_DPHY_CTRL_CLKLANE_ENABLE_OFFSET_BIT) | 0x1));
 
 	/* Reset dphy analog part */
 	write_csiphy_reg(priv, CSIPHY_CTRL_PWRCTL, 0xe0);
@@ -1323,10 +1770,11 @@ rockchip_mipidphy_notifier_bound(struct v4l2_async_notifier *notifier,
 		return -ENXIO;
 	}
 
-	ret = media_entity_create_link(
-			&sensor->sd->entity, pad,
-			&priv->sd.entity, MIPI_DPHY_RX_PAD_SINK,
-			priv->num_sensors != 1 ? 0 : MEDIA_LNK_FL_ENABLED);
+	ret = media_entity_create_link(&sensor->sd->entity, pad,
+				       &priv->sd.entity,
+				       MIPI_DPHY_RX_PAD_SINK,
+				       priv->num_sensors != 1 ? 0 :
+				       MEDIA_LNK_FL_ENABLED);
 	if (ret) {
 		dev_err(priv->dev,
 			"failed to create link for %s\n",
@@ -1413,10 +1861,11 @@ static int rockchip_mipidphy_media_init(struct mipidphy_priv *priv)
 	if (ret < 0)
 		return ret;
 
-	ret = v4l2_async_notifier_parse_fwnode_endpoints_by_port(
-		priv->dev, &priv->notifier,
-		sizeof(struct sensor_async_subdev), 0,
-		rockchip_mipidphy_fwnode_parse);
+	ret = v4l2_async_notifier_parse_fwnode_endpoints_by_port(priv->dev,
+								 &priv->notifier,
+								 sizeof(struct sensor_async_subdev),
+								 0,
+								 rockchip_mipidphy_fwnode_parse);
 	if (ret < 0)
 		return ret;
 
@@ -1488,9 +1937,15 @@ static int rockchip_mipidphy_probe(struct platform_device *pdev)
 		priv->stream_on = mipidphy_txrx_stream_on;
 		priv->txrx_base_addr = NULL;
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		priv->txrx_base_addr = devm_ioremap_resource(dev, res);
-		if (IS_ERR(priv->txrx_base_addr))
+		if (res) {
+			priv->txrx_base_addr = devm_ioremap_resource(dev, res);
+			if (IS_ERR(priv->txrx_base_addr)) {
+				dev_err(dev, "Failed to ioremap resource\n");
+				return PTR_ERR(priv->txrx_base_addr);
+			}
+		} else {
 			priv->stream_on = mipidphy_rx_stream_on;
+		}
 		priv->stream_off = NULL;
 	}
 

@@ -60,6 +60,7 @@
 #define RKISP1_MAX_PIPELINE	4
 
 #define RKISP1_MEDIA_BUS_FMT_MASK	0xF000
+#define RKISP1_MEDIA_BUS_FMT_RGB	0x1000
 #define RKISP1_MEDIA_BUS_FMT_BAYER	0x3000
 
 #define RKISP1_CONTI_ERR_MAX		50
@@ -161,11 +162,15 @@ struct rkisp1_device {
 	unsigned int emd_vc;
 	unsigned int emd_dt;
 	int vs_irq;
+	int mipi_irq;
 	struct gpio_desc *vs_irq_gpio;
 	struct v4l2_subdev *hdr_sensor;
 	enum rkisp1_isp_state isp_state;
 	unsigned int isp_err_cnt;
 	enum rkisp1_isp_inp isp_inp;
+	struct mutex apilock; /* mutex to serialize the calls of stream */
+	struct mutex iqlock; /* mutex to serialize the calls of iq */
+	wait_queue_head_t sync_onoff;
 };
 
 #endif

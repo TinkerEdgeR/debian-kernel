@@ -558,6 +558,7 @@ struct fusb30x_chip {
 	enum role_mode try_role;
 	struct input_dev *input;
 	int spec_rev;
+	bool suspended;
 };
 
 #endif /* FUSB302_H */

@@ -235,6 +235,11 @@
 		BT,wake_host_irq = <&gpio0 RK_PA5 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
+
+	usbacm_video_control: usbacm-video-control {
+		compatible = "rockchip,usbacm-video-control";
+		status = "disabled";
+	};
 };
 
 &cdn_dp {
@@ -574,7 +579,6 @@
 			};
 
 			vcc_sd: LDO_REG9 {
-				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <3300000>;
 				regulator-max-microvolt = <3300000>;
@@ -954,6 +958,13 @@
 		charger_ok_int: charger-ok-int {
 			rockchip,pins =
 				<1 RK_PA1 0 &pcfg_pull_up>;
+			};
+	};
+
+	camera {
+		cam_pwren_high: cam-pwren-high {
+			rockchip,pins =
+				<4 RK_PC5 0 &pcfg_output_high>;
 			};
 	};
 
