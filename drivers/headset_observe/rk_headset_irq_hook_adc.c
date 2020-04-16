@@ -179,17 +179,6 @@ void rk_headset_set_jack_detect(struct snd_soc_jack *jack)
 }
 EXPORT_SYMBOL_GPL(rk_headset_set_jack_detect);
 
-static struct snd_soc_jack *hpdet_jack;
-
-void rk_headset_set_jack_detect(struct snd_soc_jack *jack)
-{
-	hpdet_jack = jack;
-
-	/* Send an initial empty report */
-	snd_soc_jack_report(jack, 0, SND_JACK_HEADSET);
-}
-EXPORT_SYMBOL_GPL(rk_headset_set_jack_detect);
-
 //1
 static irqreturn_t headset_interrupt(int irq, void *dev_id)
 {
