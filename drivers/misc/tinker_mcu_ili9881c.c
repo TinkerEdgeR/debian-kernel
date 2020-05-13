@@ -128,12 +128,14 @@ static int init_cmd_check(struct tinker_mcu_data *mcu_data, int dsi_id)
 	LOG_INFO("recv_cmds: 0x%X\n", recv_buf[0]);
 	printk("****lcd size value is: 0x%X\n", recv_buf[0]);
 
-	if(recv_buf[0]==0x85)
+	if(recv_buf[0] == 0x86) //7-inch rev_b
 		lcd_size_flag[dsi_id] = 0;
-	else if(recv_buf[0]==0x89)
+	else if(recv_buf[0] == 0x89) //5-inch
 		lcd_size_flag[dsi_id]  = 1;
-	else if(recv_buf[0]==0x8d)
+	else if(recv_buf[0] == 0x8d) //10-inch
 		lcd_size_flag[dsi_id]  = 2;
+	else if((recv_buf[0] & 0xF0) == 0x80) //assign to 7-inch rev_a
+		lcd_size_flag[dsi_id] = 3;
 
 	return 0;
 
@@ -146,7 +148,7 @@ int tinker_mcu_ili9881c_screen_power_up(int dsi_id)
 	if (!connected[dsi_id])
 		return -ENODEV;
 
-	LOG_INFO("\n");
+	LOG_INFO("dsi_id =%d\n", dsi_id);
 	send_cmds(g_mcu_ili9881c_data[dsi_id]->client, "0503");
 	msleep(20);
 	send_cmds(g_mcu_ili9881c_data[dsi_id]->client, "0500");
