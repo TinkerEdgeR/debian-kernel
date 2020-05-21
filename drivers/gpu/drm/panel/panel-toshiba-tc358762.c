@@ -185,7 +185,12 @@ static int tc358762_of_get_native_mode(struct tc358762 *panel)
 	return 1;
 }
 
+extern struct backlight_device * tinker_mcu_get_backlightdev(int dsi_id);
 extern int tinker_mcu_set_bright(int bright, int dsi_id);
+extern int tinker_mcu_screen_power_up(int dsi_id);
+extern int tinker_mcu_screen_power_off(int dsi_id);
+extern void tinker_ft5406_start_polling(int dsi_id);
+
 static int tc358762_disable(struct drm_panel *panel)
 {
 	struct tc358762 *p = to_tc358762(panel);
@@ -205,6 +210,8 @@ static int tc358762_disable(struct drm_panel *panel)
 
 	if (p->desc && p->desc->delay.disable)
 		msleep(p->desc->delay.disable);
+
+	tinker_mcu_screen_power_off(p->dsi_id);
 
 	p->enabled = false;
 
@@ -297,10 +304,6 @@ static int tc358762_prepare(struct drm_panel *panel)
 	return 0;
 }
 
-extern struct backlight_device * tinker_mcu_get_backlightdev(int dsi_id);
-extern void tinker_mcu_screen_power_up(int dsi_id);
-extern int tinker_mcu_screen_power_off(int dsi_id);
-extern void tinker_ft5406_start_polling(int dsi_id);
 static int tc358762_enable(struct drm_panel *panel)
 {
 	struct tc358762 *p = to_tc358762(panel);
@@ -313,7 +316,11 @@ static int tc358762_enable(struct drm_panel *panel)
 	if(trigger_bridge[p->dsi_id]) {
 		pr_info("tinker_mcu_screen_power_up");
 		tinker_mcu_screen_power_up(p->dsi_id);
-		trigger_bridge[p->dsi_id] = 0;
+
+		/*Some particulare rpi panel need powering on/off during sususpned/resume to avoid
+		 the flicker about 7 seconds */
+		//trigger_bridge[p->dsi_id] = 0;
+
 		msleep(100);
 		tinker_ft5406_start_polling(p->dsi_id);
 	}
@@ -492,7 +499,6 @@ static void tc358762_shutdown(struct device *dev)
 	struct tc358762 *panel = dev_get_drvdata(dev);
 
 	tc358762_disable(&panel->base);
-	tinker_mcu_screen_power_off(dsi_id);
 }
 
 struct bridge_desc {
