@@ -23,7 +23,6 @@
 #include <video/of_videomode.h>
 #include <video/videomode.h>
 
-
 extern int tinker_mcu_ili9881c_is_connected(int dsi_id);
 extern int tinker_mcu_is_connected(int dsi_id);
 
@@ -33,7 +32,8 @@ extern int tc358762_dsi_shutdown(struct mipi_dsi_device *dsi);
 
 extern int ili9881c_dsi_probe(struct mipi_dsi_device *dsi);
 extern int ili9881c_dsi_remove(struct mipi_dsi_device *dsi);
-	
+extern int ili9881c_dsi_shutdown(struct mipi_dsi_device *dsi);
+
 static int asus_dsi_probe(struct mipi_dsi_device *dsi)
 {
 	struct device_node *np;
@@ -80,6 +80,8 @@ void asus_dsi_shutdown(struct mipi_dsi_device *dsi)
 	printk("asus_dsi_shutdown dsi_id=%d +\n", dsi_id);
 	if (tinker_mcu_is_connected(dsi_id))
 		tc358762_dsi_shutdown(dsi);
+	else
+		ili9881c_dsi_shutdown(dsi);
 	printk("asus_dsi_shutdown-\n");
 
 	return;
