@@ -46,7 +46,10 @@ struct temp_opp_table {
  * @opp_table:		Frequency and voltage information of device
  * @devp:		Device-specific system monitor profile
  * @node:		Node in monitor_dev_list
- * @temp_freq_table:	Maximum frequency at different temperature
+ * @temp_freq_table:	Maximum frequency at different temperature and the
+ *			frequency will not be changed by thermal framework.
+ * @high_limit_table:	Limit maximum frequency at different temperature,
+ *			but the frequency is also changed by thermal framework.
  * @volt_adjust_mutex:	A mutex to protect changing voltage.
  * @low_limit:		Limit maximum frequency when low temperature, in Hz
  * @high_limit:		Limit maximum frequency when high temperature, in Hz
@@ -79,6 +82,7 @@ struct monitor_dev_info {
 	struct monitor_dev_profile *devp;
 	struct list_head node;
 	struct temp_freq_table *temp_freq_table;
+	struct temp_freq_table *high_limit_table;
 	struct mutex volt_adjust_mutex;
 	unsigned long low_limit;
 	unsigned long high_limit;
@@ -126,6 +130,8 @@ int rockchip_monitor_suspend_low_temp_adjust(struct monitor_dev_info *info);
 int
 rockchip_system_monitor_adjust_cdev_state(struct thermal_cooling_device *cdev,
 					  int temp, unsigned long *state);
+int rockchip_monitor_opp_set_rate(struct monitor_dev_info *info,
+				  unsigned long target_freq);
 #else
 static inline struct monitor_dev_info *
 rockchip_system_monitor_register(struct device *dev,
@@ -178,6 +184,11 @@ rockchip_system_monitor_adjust_cdev_state(struct thermal_cooling_device *cdev,
 	return 0;
 }
 
+static inline int rockchip_monitor_opp_set_rate(struct monitor_dev_info *info,
+						unsigned long target_freq)
+{
+	return 0;
+}
 #endif /* CONFIG_ROCKCHIP_SYSTEM_MONITOR */
 
 #endif

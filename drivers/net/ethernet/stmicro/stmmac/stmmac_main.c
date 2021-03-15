@@ -3096,7 +3096,7 @@ int stmmac_dvr_probe(struct device *device,
 	ret = dwmac_rk_create_loopback_sysfs(device);
 	if (ret) {
 		netdev_err(priv->dev, "%s: ERROR %i create loopback sysfs\n",
-			__func__, ret);
+			   __func__, ret);
 		unregister_netdev(ndev);
 		goto error_netdev_register;
 	}

@@ -168,18 +168,21 @@ int dwc3_gadget_set_link_state(struct dwc3 *dwc, enum dwc3_link_state state)
  */
 static int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 {
-	int		last_fifo_depth = 0;
+	int		last_fifo_depth;
 	int		fifo_size;
 	int		mdwidth;
 	u8		num;
 
-	if (!dwc->needs_fifo_resize)
+	if (!dwc->needs_fifo_resize || dwc->fifo_resize_status)
 		return 0;
 
 	mdwidth = DWC3_MDWIDTH(dwc->hwparams.hwparams0);
 
 	/* MDWIDTH is represented in bits, we need it in bytes */
 	mdwidth >>= 3;
+
+	fifo_size = dwc3_readl(dwc->regs, DWC3_GTXFIFOSIZ(0));
+	last_fifo_depth = DWC3_GTXFIFOSIZ_TXFSTADDR(fifo_size) >> 16;
 
 	for (num = 0; num < dwc->num_in_eps; num++) {
 		u8	epnum = (num << 1) | 1;
@@ -189,11 +192,11 @@ static int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 		int	tmp;
 
 		if (!(dep->flags & DWC3_EP_ENABLED))
-			continue;
-
-		if (usb_endpoint_xfer_bulk(dep->endpoint.desc) ||
-		    usb_endpoint_xfer_isoc(dep->endpoint.desc))
+			mult = 2;
+		else if (usb_endpoint_xfer_bulk(dep->endpoint.desc))
 			mult = 3;
+		else if (usb_endpoint_xfer_isoc(dep->endpoint.desc))
+			mult = 6;
 
 		/*
 		 * REVISIT: the following assumes we will always have enough
@@ -221,6 +224,8 @@ static int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 
 		last_fifo_depth += (fifo_size & 0xffff);
 	}
+
+	dwc->fifo_resize_status = true;
 
 	return 0;
 }
@@ -794,7 +799,9 @@ static int dwc3_gadget_ep_enable(struct usb_ep *ep,
 	ret = __dwc3_gadget_ep_enable(dep, desc, ep->comp_desc, false, false);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
-	dwc3_gadget_resize_tx_fifos(dwc);
+	if (usb_endpoint_xfer_isoc(ep->desc) &&
+	    usb_endpoint_maxp(ep->desc) >= 1024)
+		dwc3_gadget_resize_tx_fifos(dwc);
 
 	return ret;
 }
@@ -1925,6 +1932,7 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 		goto out;
 	}
 	__dwc3_gadget_stop(dwc);
+	dwc->fifo_resize_status	= false;
 	dwc->gadget_driver	= NULL;
 	spin_unlock_irqrestore(&dwc->lock, flags);
 

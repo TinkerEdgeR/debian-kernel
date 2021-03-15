@@ -1568,7 +1568,7 @@ static void rk_fix_speed(void *priv, unsigned int speed)
 }
 
 void dwmac_rk_set_rgmii_delayline(struct stmmac_priv *priv,
-				int tx_delay, int rx_delay)
+				  int tx_delay, int rx_delay)
 {
 	struct rk_priv_data *bsp_priv = priv->plat->bsp_priv;
 
@@ -1581,7 +1581,7 @@ void dwmac_rk_set_rgmii_delayline(struct stmmac_priv *priv,
 EXPORT_SYMBOL(dwmac_rk_set_rgmii_delayline);
 
 void dwmac_rk_get_rgmii_delayline(struct stmmac_priv *priv,
-				int *tx_delay, int *rx_delay)
+				  int *tx_delay, int *rx_delay)
 {
 	struct rk_priv_data *bsp_priv = priv->plat->bsp_priv;
 
@@ -1595,9 +1595,9 @@ EXPORT_SYMBOL(dwmac_rk_get_rgmii_delayline);
 
 int dwmac_rk_get_phy_interface(struct stmmac_priv *priv)
 {
-       struct rk_priv_data *bsp_priv = priv->plat->bsp_priv;
+	struct rk_priv_data *bsp_priv = priv->plat->bsp_priv;
 
-       return bsp_priv->phy_iface;
+	return bsp_priv->phy_iface;
 }
 EXPORT_SYMBOL(dwmac_rk_get_phy_interface);
 

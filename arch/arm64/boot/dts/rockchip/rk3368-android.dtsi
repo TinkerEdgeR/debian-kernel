@@ -113,7 +113,7 @@
 		interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&cru ACLK_RGA>, <&cru HCLK_RGA>, <&cru SCLK_RGA>;
 		clock-names = "aclk_rga", "hclk_rga", "clk_rga";
-		dma-coherent;
+		power-domains = <&power RK3368_PD_VIO>;
 		status = "okay";
 	};
 
@@ -335,7 +335,7 @@
 					<1 6 RK_FUNC_1 &pcfg_pull_none>,//cif_data8
 					<1 7 RK_FUNC_1 &pcfg_pull_none>,//cif_data9
 					<1 14 RK_FUNC_1 &pcfg_pull_none>,//cif_data10
-					<1 17 RK_FUNC_1 &pcfg_pull_none>;//cif_data11
+					<1 15 RK_FUNC_1 &pcfg_pull_none>;//cif_data11
 		};
 
 		isp_shutter: isp-shutter {

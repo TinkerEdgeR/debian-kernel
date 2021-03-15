@@ -82,6 +82,12 @@
 #define STREAM_MIN_MP_SP_INPUT_WIDTH		32
 #define STREAM_MIN_MP_SP_INPUT_HEIGHT		32
 
+/*
+ * Round up height when allocate memory so that Rockchip encoder can
+ * use DMA buffer directly, though this may waste a bit of memory.
+ */
+#define MEMORY_ALIGN_ROUND_UP_HEIGHT		16
+
 /* Get xsubs and ysubs for fourcc formats
  *
  * @xsubs: horizontal color samples in a 4*4 matrix, for yuv
@@ -1315,9 +1321,10 @@ static int rkisp1_queue_setup(struct vb2_queue *queue,
 
 	for (i = 0; i < isp_fmt->mplanes; i++) {
 		const struct v4l2_plane_pix_format *plane_fmt;
+		int h = round_up(pixm->height, MEMORY_ALIGN_ROUND_UP_HEIGHT);
 
 		plane_fmt = &pixm->plane_fmt[i];
-		sizes[i] = plane_fmt->sizeimage;
+		sizes[i] = plane_fmt->sizeimage / pixm->height * h;
 		alloc_ctxs[i] = dev->alloc_ctx;
 	}
 
@@ -1430,23 +1437,11 @@ static void rkisp1_destroy_dummy_buf(struct rkisp1_stream *stream)
 			  dummy_buf->vaddr, dummy_buf->dma_addr);
 }
 
-static void rkisp1_stop_streaming(struct vb2_queue *queue)
+static void destroy_buf_queue(struct rkisp1_stream *stream,
+			      enum vb2_buffer_state state)
 {
-	struct rkisp1_stream *stream = queue->drv_priv;
-	struct rkisp1_vdev_node *node = &stream->vnode;
-	struct rkisp1_device *dev = stream->ispdev;
-	struct v4l2_device *v4l2_dev = &dev->v4l2_dev;
 	struct rkisp1_buffer *buf;
 	unsigned long lock_flags = 0;
-	int ret;
-
-	rkisp1_stream_stop(stream);
-	/* call to the other devices */
-	media_entity_pipeline_stop(&node->vdev.entity);
-	ret = dev->pipe.set_stream(&dev->pipe, false);
-	if (ret < 0)
-		v4l2_err(v4l2_dev, "pipeline stream-off failed error:%d\n",
-			 ret);
 
 	/* release buffers */
 	spin_lock_irqsave(&stream->vbq_lock, lock_flags);
@@ -1464,9 +1459,30 @@ static void rkisp1_stop_streaming(struct vb2_queue *queue)
 		buf = list_first_entry(&stream->buf_queue,
 				       struct rkisp1_buffer, queue);
 		list_del(&buf->queue);
-		vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_ERROR);
+		vb2_buffer_done(&buf->vb.vb2_buf, state);
 	}
 	spin_unlock_irqrestore(&stream->vbq_lock, lock_flags);
+
+}
+
+static void rkisp1_stop_streaming(struct vb2_queue *queue)
+{
+	struct rkisp1_stream *stream = queue->drv_priv;
+	struct rkisp1_vdev_node *node = &stream->vnode;
+	struct rkisp1_device *dev = stream->ispdev;
+	struct v4l2_device *v4l2_dev = &dev->v4l2_dev;
+	int ret;
+
+	rkisp1_stream_stop(stream);
+	/* call to the other devices */
+	media_entity_pipeline_stop(&node->vdev.entity);
+	ret = dev->pipe.set_stream(&dev->pipe, false);
+	if (ret < 0)
+		v4l2_err(v4l2_dev, "pipeline stream-off failed error:%d\n",
+			 ret);
+
+	/* release buffers */
+	destroy_buf_queue(stream, VB2_BUF_STATE_ERROR);
 
 	ret = dev->pipe.close(&dev->pipe);
 	if (ret < 0)
@@ -1517,7 +1533,6 @@ rkisp1_start_streaming(struct vb2_queue *queue, unsigned int count)
 	struct rkisp1_device *dev = stream->ispdev;
 	struct v4l2_device *v4l2_dev = &dev->v4l2_dev;
 	int ret;
-	unsigned int i;
 
 	if (WARN_ON(stream->streaming))
 		return -EBUSY;
@@ -1587,14 +1602,8 @@ close_pipe:
 destroy_dummy_buf:
 	rkisp1_destroy_dummy_buf(stream);
 buffer_done:
-	for (i = 0; i < queue->num_buffers; ++i) {
-		struct vb2_buffer *vb;
-
-		vb = queue->bufs[i];
-		if (vb->state == VB2_BUF_STATE_ACTIVE)
-			vb2_buffer_done(vb, VB2_BUF_STATE_QUEUED);
-	}
-
+	destroy_buf_queue(stream, VB2_BUF_STATE_QUEUED);
+	stream->streaming = false;
 	return ret;
 }
 
