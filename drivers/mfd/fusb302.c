@@ -3662,6 +3662,10 @@ static void fusb30x_shutdown(struct i2c_client *client)
 {
 	struct fusb30x_chip *chip = i2c_get_clientdata(client);
 
+	if (chip->notify.is_enter_mode) {
+		set_state_unattached(chip);
+	}
+
 	if (chip->gpio_vbus_5v) {
 		tcpm_set_vconn(chip, 0);
 		gpiod_set_value(chip->gpio_vbus_5v, 0);
