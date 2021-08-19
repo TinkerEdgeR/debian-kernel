@@ -14,7 +14,7 @@
 #include "rk3399-vop-clk-set.dtsi"
 
 / {
-	model = "Tinker Edge R";
+	model = "ASUS Tinker Edge R";
 
 	compatible = "rockchip,rk3399pro-evb-v11-linux", "rockchip,rk3399pro";
 
