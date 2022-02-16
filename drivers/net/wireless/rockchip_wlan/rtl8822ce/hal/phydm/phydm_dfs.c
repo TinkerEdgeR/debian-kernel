@@ -73,7 +73,7 @@ void phydm_radar_detect_reset(void *dm_void)
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 
 	if (dm->support_ic_type & (ODM_RTL8198F | ODM_RTL8822C | ODM_RTL8812F |
-				   ODM_RTL8197G)) {
+				   ODM_RTL8197G | ODM_RTL8723F)) {
 		odm_set_bb_reg(dm, R_0xa40, BIT(15), 0);
 		odm_set_bb_reg(dm, R_0xa40, BIT(15), 1);
 	#if (RTL8721D_SUPPORT)
@@ -100,7 +100,7 @@ void phydm_radar_detect_disable(void *dm_void)
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 
 	if (dm->support_ic_type & (ODM_RTL8198F | ODM_RTL8822C | ODM_RTL8812F |
-				   ODM_RTL8197G))
+				   ODM_RTL8197G | ODM_RTL8723F))
 		odm_set_bb_reg(dm, R_0xa40, BIT(15), 0);
 	else if (dm->support_ic_type & (ODM_RTL8814B)) {
 		if (dm->seg1_dfs_flag == 1) {
@@ -443,38 +443,41 @@ void phydm_radar_detect_enable(void *dm_void)
 			goto exit;
 		}
 		if (region_domain == PHYDM_DFS_DOMAIN_ETSI) {
-			odm_set_bb_reg(dm, R_0xa40, MASKDWORD, 0xb359c5bd);
+			odm_set_bb_reg(dm, R_0xa40, MASKDWORD, 0xb25dc0bd);
 			if (dm->support_ic_type & (ODM_RTL8814B)) {
 				if (dm->seg1_dfs_flag == 1)
 					odm_set_bb_reg(dm, R_0xa6c, BIT(0), 1);
 			}
-			odm_set_bb_reg(dm, R_0xa44, MASKDWORD, 0x3033bebd);
+			odm_set_bb_reg(dm, R_0xa44, MASKDWORD, 0x3030bea0);
 			odm_set_bb_reg(dm, R_0xa48, MASKDWORD, 0x2a521254);
-			odm_set_bb_reg(dm, R_0xa4c, MASKDWORD, 0xa2533345);
-			odm_set_bb_reg(dm, R_0xa50, MASKDWORD, 0x605be003);
-			odm_set_bb_reg(dm, R_0xa54, MASKDWORD, 0x500089e8);
+			odm_set_bb_reg(dm, R_0xa4c, MASKDWORD, 0x42533345);
+			odm_set_bb_reg(dm, R_0xa50, MASKDWORD, 0x605be0c3);
+			odm_set_bb_reg(dm, R_0xa54, MASKDWORD, 0x500009e8);
+			odm_set_bb_reg(dm, R_0x180c, 0xe0000, 0x0);
 		} else if (region_domain == PHYDM_DFS_DOMAIN_MKK) {
-			odm_set_bb_reg(dm, R_0xa40, MASKDWORD, 0xb359c5bd);
+			odm_set_bb_reg(dm, R_0xa40, MASKDWORD, 0xb25dc0bd);
 			if (dm->support_ic_type & (ODM_RTL8814B)) {
 				if (dm->seg1_dfs_flag == 1)
 					odm_set_bb_reg(dm, R_0xa6c, BIT(0), 1);
 			}
-			odm_set_bb_reg(dm, R_0xa44, MASKDWORD, 0x3033bebd);
+			odm_set_bb_reg(dm, R_0xa44, MASKDWORD, 0x3030bea0);
 			odm_set_bb_reg(dm, R_0xa48, MASKDWORD, 0x2a521254);
-			odm_set_bb_reg(dm, R_0xa4c, MASKDWORD, 0xa2533345);
-			odm_set_bb_reg(dm, R_0xa50, MASKDWORD, 0x605be003);
-			odm_set_bb_reg(dm, R_0xa54, MASKDWORD, 0x500089e8);
+			odm_set_bb_reg(dm, R_0xa4c, MASKDWORD, 0x42533345);
+			odm_set_bb_reg(dm, R_0xa50, MASKDWORD, 0x605be0c3);
+			odm_set_bb_reg(dm, R_0xa54, MASKDWORD, 0x500009e8);
+			odm_set_bb_reg(dm, R_0x180c, 0xe0000, 0x0);
 		} else if (region_domain == PHYDM_DFS_DOMAIN_FCC) {
-			odm_set_bb_reg(dm, R_0xa40, MASKDWORD, 0xb359c5bd);
+			odm_set_bb_reg(dm, R_0xa40, MASKDWORD, 0xb25dc0bd);
 			if (dm->support_ic_type & (ODM_RTL8814B)) {
 				if (dm->seg1_dfs_flag == 1)
 					odm_set_bb_reg(dm, R_0xa6c, BIT(0), 1);
 			}
-			odm_set_bb_reg(dm, R_0xa44, MASKDWORD, 0x3033bebd);
+			odm_set_bb_reg(dm, R_0xa44, MASKDWORD, 0x3030bea0);
 			odm_set_bb_reg(dm, R_0xa48, MASKDWORD, 0x2a521254);
-			odm_set_bb_reg(dm, R_0xa4c, MASKDWORD, 0xa2533345);
-			odm_set_bb_reg(dm, R_0xa50, MASKDWORD, 0x605be003);
-			odm_set_bb_reg(dm, R_0xa54, MASKDWORD, 0x500089e8);
+			odm_set_bb_reg(dm, R_0xa4c, MASKDWORD, 0x42533345);
+			odm_set_bb_reg(dm, R_0xa50, MASKDWORD, 0x605be0c3);
+			odm_set_bb_reg(dm, R_0xa54, MASKDWORD, 0x500009e8);
+			odm_set_bb_reg(dm, R_0x180c, 0xe0000, 0x0);
 		} else {
 			/* not supported */
 			PHYDM_DBG(dm, DBG_DFS,
@@ -632,10 +635,33 @@ void phydm_dfs_parameter_init(void *dm_void)
 		dfs->hist_cond_on = 1;
 	else
 		dfs->hist_cond_on = 0;
+	if (dm->support_ic_type & (ODM_RTL8723F | ODM_RTL8822C)) {
+		dfs->det_print_jar3 = 1;
+		dfs->nhm_dfs_en = true;
+		dfs->det_jar3_en = true;
+	} else {
+		dfs->det_print_jar3 = 0;
+		dfs->nhm_dfs_en = false;
+		dfs->det_jar3_en = false;
+	}
+
+	/*@for flag en*/
+	dfs->pw_flag_en = true;
+	dfs->pri_flag_en = true;
+	dfs->loct_flag_en = true;
+	dfs->nhm_cnt_th = 4;
+	dfs->nhm_dty_th = 40;
+
+	/*@for jgar3*/
+	dfs->pri_var_offset = 2;
+	dfs->pri_var_tp_offset = 10;
+	dfs->pri_cnt_th = 2;
+	dfs->loct_diff_th = 15;
+	dfs->dc_cnt_th = 3;
 
 	/*@for dynamic dfs*/
 	dfs->pwdb_th = 8;
-	dfs->fa_mask_th = 30;
+	dfs->fa_mask_th = 120 * dfs->dfs_polling_time / 100;
 	dfs->st_l2h_min = 0x20;
 	dfs->st_l2h_max = 0x4e;
 	dfs->pwdb_scalar_factor = 12;
@@ -756,6 +782,7 @@ void phydm_dfs_dynamic_setting(
 	}
 
 	if (dm->support_ic_type & ODM_IC_JGR3_SERIES) {
+		/*
 		if (dfs->peak_th != peak_th_cur)
 			odm_set_bb_reg(dm, R_0xa48, 0x00c00000, peak_th_cur);
 		if (dfs->short_pulse_cnt_th != short_pulse_cnt_th_cur)
@@ -773,6 +800,7 @@ void phydm_dfs_dynamic_setting(
 		if (dfs->three_peak_th2 != three_peak_th2_cur)
 			odm_set_bb_reg(dm, R_0xa44, 0x00000007,
 				       three_peak_th2_cur);
+		*/
 	#if (RTL8721D_SUPPORT)
 	} else if (dm->support_ic_type & (ODM_RTL8721D)) {
 		if (dfs->peak_th != peak_th_cur)
@@ -827,23 +855,24 @@ phydm_radar_detect_dm_check(
 {
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	struct _DFS_STATISTICS *dfs = &dm->dfs;
+	struct phydm_fa_struct *fa_t = &dm->false_alm_cnt;
 	u8 region_domain = dm->dfs_region_domain, index = 0;
 
-	u16 i = 0, j = 0, k = 0, fa_count_cur = 0, fa_count_inc = 0;
-	u16 total_fa_in_hist = 0, pre_post_now_acc_fa_in_hist = 0;
-	u16 max_fa_in_hist = 0, vht_crc_ok_cnt_cur = 0;
-	u16 vht_crc_ok_cnt_inc = 0, ht_crc_ok_cnt_cur = 0;
-	u16 ht_crc_ok_cnt_inc = 0, leg_crc_ok_cnt_cur = 0;
-	u16 leg_crc_ok_cnt_inc = 0;
-	u16 total_crc_ok_cnt_inc = 0, short_pulse_cnt_cur = 0;
-	u16 short_pulse_cnt_inc = 0, long_pulse_cnt_cur = 0;
-	u16 long_pulse_cnt_inc = 0, total_pulse_count_inc = 0;
+	u16 i = 0, j = 0, fa_count_cur = 0, fa_count_inc = 0;
+	u16 total_fa_in_hist = 0, total_pulse_count_inc = 0;
+	u16 short_pulse_cnt_inc = 0, short_pulse_cnt_cur = 0;
+	u16 long_pulse_cnt_inc = 0, long_pulse_cnt_cur = 0;
 	u32 regf98_value = 0, reg918_value = 0, reg91c_value = 0;
 	u32 reg920_value = 0, reg924_value = 0, radar_rpt_reg_value = 0;
 	u32 regf54_value = 0, regf58_value = 0, regf5c_value = 0;
 	u32 regdf4_value = 0, regf70_value = 0, regf74_value = 0;
+	#if (RTL8812F_SUPPORT || RTL8822C_SUPPORT || RTL8814B_SUPPORT || RTL8723F_SUPPORT)
 	u32 rega40_value = 0, rega44_value = 0, rega48_value = 0;
 	u32 rega4c_value = 0, rega50_value = 0, rega54_value = 0;
+	u32 reg_2e08 = 0, reg_2e24 = 0, reg_2e28 = 0;
+	u32 reg_2e2c = 0, reg_2e30 = 0, reg_2e34 = 0;
+	u32 reg_2e0c = 0, reg_2e10 = 0, reg_2e20 = 0;
+	#endif
 	#if (RTL8721D_SUPPORT)
 	u32 reg908_value = 0, regdf4_value = 0;
 	u32 regf54_value = 0, regf58_value = 0, regf5c_value = 0;
@@ -852,12 +881,14 @@ phydm_radar_detect_dm_check(
 	boolean tri_short_pulse = 0, tri_long_pulse = 0, radar_type = 0;
 	boolean fault_flag_det = 0, fault_flag_psd = 0, fa_flag = 0;
 	boolean radar_detected = 0;
-	u8 st_l2h_new = 0, fa_mask_th = 0, sum = 0;
+	u8 st_l2h_new = 0, fa_mask_th = 0, k = 0, sum = 0;
 	u8 c_channel = *dm->channel;
 
 	/*@Get FA count during past 100ms, R_0xf48 for AC series*/
 	if (dm->support_ic_type & ODM_IC_JGR3_SERIES)
-		fa_count_cur = (u16)odm_get_bb_reg(dm, R_0x2d00, MASKLWORD);
+		/*fa_count_cur = (u16)odm_get_bb_reg(dm, R_0x2d00, MASKLWORD);*/
+		/*1-sec period*/
+		fa_count_cur = fa_t->cnt_all * dfs->dfs_polling_time / 1000;
 	#if (RTL8721D_SUPPORT)
 	else if (dm->support_ic_type & (ODM_RTL8721D)) {
 		fa_count_cur = (u16)odm_get_bb_reg(dm,
@@ -883,126 +914,28 @@ phydm_radar_detect_dm_check(
 	else
 		fa_count_cur = (u16)odm_get_bb_reg(dm, R_0xf48, 0x0000ffff);
 
-	if (dfs->fa_count_pre == 0)
-		fa_count_inc = 0;
-	else if (fa_count_cur >= dfs->fa_count_pre)
-		fa_count_inc = fa_count_cur - dfs->fa_count_pre;
-	else
+	if (!(dm->support_ic_type & ODM_IC_JGR3_SERIES)) {
+		if (dfs->fa_count_pre == 0)
+			fa_count_inc = 0;
+		else if (fa_count_cur >= dfs->fa_count_pre)
+			fa_count_inc = fa_count_cur - dfs->fa_count_pre;
+		else
+			fa_count_inc = fa_count_cur;
+		dfs->fa_count_pre = fa_count_cur;
+	} else {
 		fa_count_inc = fa_count_cur;
-	dfs->fa_count_pre = fa_count_cur;
-
-	dfs->fa_inc_hist[dfs->mask_idx] = fa_count_inc;
-
-	for (i = 0; i < 5; i++) {
-		total_fa_in_hist = total_fa_in_hist + dfs->fa_inc_hist[i];
-		if (dfs->fa_inc_hist[i] > max_fa_in_hist)
-			max_fa_in_hist = dfs->fa_inc_hist[i];
 	}
+
+	for (i = 0; i < 5; i++)
+		total_fa_in_hist = total_fa_in_hist + dfs->fa_inc_hist[i];
+
 	if (dfs->mask_idx >= 2)
 		index = dfs->mask_idx - 2;
 	else
 		index = 5 + dfs->mask_idx - 2;
-	if (index == 0) {
-		pre_post_now_acc_fa_in_hist = dfs->fa_inc_hist[index] +
-					      dfs->fa_inc_hist[index + 1] +
-					      dfs->fa_inc_hist[4];
-	} else if (index == 4) {
-		pre_post_now_acc_fa_in_hist = dfs->fa_inc_hist[index] +
-					      dfs->fa_inc_hist[0] +
-					      dfs->fa_inc_hist[index - 1];
-	} else {
-		pre_post_now_acc_fa_in_hist = dfs->fa_inc_hist[index] +
-					      dfs->fa_inc_hist[index + 1] +
-					      dfs->fa_inc_hist[index - 1];
-	}
-
-	/*@Get VHT CRC32 ok count during past 100ms*/
-	if (dm->support_ic_type & ODM_IC_JGR3_SERIES)
-		vht_crc_ok_cnt_cur = (u16)odm_get_bb_reg(dm, R_0x2c0c, 0xffff);
-	#if (RTL8721D_SUPPORT)
-	else if (dm->support_ic_type & ODM_RTL8721D)
-		vht_crc_ok_cnt_cur = 0;
-	#endif
-	else
-		vht_crc_ok_cnt_cur = (u16)odm_get_bb_reg(dm, R_0xf0c,
-							 0x00003fff);
-
-	if (vht_crc_ok_cnt_cur >= dfs->vht_crc_ok_cnt_pre) {
-		vht_crc_ok_cnt_inc = vht_crc_ok_cnt_cur -
-				     dfs->vht_crc_ok_cnt_pre;
-	} else {
-		vht_crc_ok_cnt_inc = vht_crc_ok_cnt_cur;
-	}
-	dfs->vht_crc_ok_cnt_pre = vht_crc_ok_cnt_cur;
-
-	/*@Get HT CRC32 ok count during past 100ms*/
-	if (dm->support_ic_type & ODM_IC_JGR3_SERIES)
-		ht_crc_ok_cnt_cur = (u16)odm_get_bb_reg(dm, R_0x2c10, 0xffff);
-	#if (RTL8721D_SUPPORT)
-	else if (dm->support_ic_type & (ODM_RTL8721D))
-		ht_crc_ok_cnt_cur = (u16)odm_get_bb_reg(dm, R_0xf90, MASKLWORD);
-	#endif
-	else
-		ht_crc_ok_cnt_cur = (u16)odm_get_bb_reg(dm, R_0xf10,
-							0x00003fff);
-
-	if (ht_crc_ok_cnt_cur >= dfs->ht_crc_ok_cnt_pre)
-		ht_crc_ok_cnt_inc = ht_crc_ok_cnt_cur - dfs->ht_crc_ok_cnt_pre;
-	else
-		ht_crc_ok_cnt_inc = ht_crc_ok_cnt_cur;
-	dfs->ht_crc_ok_cnt_pre = ht_crc_ok_cnt_cur;
-
-	/*@Get Legacy CRC32 ok count during past 100ms*/
-	if (dm->support_ic_type & ODM_IC_JGR3_SERIES)
-		leg_crc_ok_cnt_cur = (u16)odm_get_bb_reg(dm, R_0x2c14, 0xffff);
-	#if (RTL8721D_SUPPORT)
-	else if (dm->support_ic_type & ODM_RTL8721D)
-		leg_crc_ok_cnt_cur = (u16)odm_get_bb_reg(dm,
-							 R_0xf94, MASKLWORD);
-	#endif
-	else
-		leg_crc_ok_cnt_cur = (u16)odm_get_bb_reg(dm, R_0xf14,
-							 0x00003fff);
-
-	if (leg_crc_ok_cnt_cur >= dfs->leg_crc_ok_cnt_pre)
-		leg_crc_ok_cnt_inc = leg_crc_ok_cnt_cur - dfs->leg_crc_ok_cnt_pre;
-	else
-		leg_crc_ok_cnt_inc = leg_crc_ok_cnt_cur;
-	dfs->leg_crc_ok_cnt_pre = leg_crc_ok_cnt_cur;
-
-	if (dm->support_ic_type & ODM_IC_JGR3_SERIES) {
-		if (vht_crc_ok_cnt_cur == 0xffff ||
-			ht_crc_ok_cnt_cur == 0xffff ||
-			leg_crc_ok_cnt_cur == 0xffff) {
-			phydm_reset_bb_hw_cnt(dm);
-		}
-	#if (RTL8721D_SUPPORT)
-	} else if (dm->support_ic_type & (ODM_RTL8721D)) {
-		if (ht_crc_ok_cnt_cur == 0xffff ||
-		    leg_crc_ok_cnt_cur == 0xffff) {
-			odm_set_bb_reg(dm, R_0xf14, BIT(16), 1);
-			odm_set_bb_reg(dm, R_0xf14, BIT(16), 0);
-		}
-	#endif
-	} else {
-		if (vht_crc_ok_cnt_cur == 0x3fff ||
-		    ht_crc_ok_cnt_cur == 0x3fff ||
-		    leg_crc_ok_cnt_cur == 0x3fff) {
-			phydm_reset_bb_hw_cnt(dm);
-		}
-	}
-
-	total_crc_ok_cnt_inc = vht_crc_ok_cnt_inc +
-			       ht_crc_ok_cnt_inc +
-			       leg_crc_ok_cnt_inc;
 
 	if (dm->support_ic_type & (ODM_RTL8198F | ODM_RTL8822C | ODM_RTL8812F |
-				   ODM_RTL8197G)) {
-		/* if (phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, 0x3b0)) {
-		 *	odm_set_bb_reg(dm, 0x1e28, 0x03c00000, 8);
-		 *	dbgport2dbc_value = phydm_get_bb_dbg_port_val(dm);
-		 *	phydm_release_bb_dbg_port(dm); }
-		 */
+				   ODM_RTL8197G| ODM_RTL8723F)) {
 		radar_rpt_reg_value = odm_get_bb_reg(dm, R_0x2e00, 0xffffffff);
 		short_pulse_cnt_cur = (u16)((radar_rpt_reg_value & 0x000ff800)
 					    >> 11);
@@ -1041,7 +974,6 @@ phydm_radar_detect_dm_check(
 	}
 
 	/*@Get short pulse count, need carefully handle the counter overflow*/
-
 	if (short_pulse_cnt_cur >= dfs->short_pulse_cnt_pre) {
 		short_pulse_cnt_inc = short_pulse_cnt_cur -
 				      dfs->short_pulse_cnt_pre;
@@ -1051,7 +983,6 @@ phydm_radar_detect_dm_check(
 	dfs->short_pulse_cnt_pre = short_pulse_cnt_cur;
 
 	/*@Get long pulse count, need carefully handle the counter overflow*/
-
 	if (long_pulse_cnt_cur >= dfs->long_pulse_cnt_pre) {
 		long_pulse_cnt_inc = long_pulse_cnt_cur -
 				     dfs->long_pulse_cnt_pre;
@@ -1065,10 +996,7 @@ phydm_radar_detect_dm_check(
 	if (dfs->det_print) {
 		PHYDM_DBG(dm, DBG_DFS,
 			  "===============================================\n");
-		PHYDM_DBG(dm, DBG_DFS,
-			  "Total_CRC_OK_cnt_inc[%d] VHT_CRC_ok_cnt_inc[%d] HT_CRC_ok_cnt_inc[%d] LEG_CRC_ok_cnt_inc[%d] FA_count_inc[%d]\n",
-			  total_crc_ok_cnt_inc, vht_crc_ok_cnt_inc,
-			  ht_crc_ok_cnt_inc, leg_crc_ok_cnt_inc, fa_count_inc);
+		PHYDM_DBG(dm, DBG_DFS, "FA_count_inc[%d]\n", fa_count_inc);
 		if (dm->support_ic_type & (ODM_RTL8721D)) {
 			PHYDM_DBG(dm, DBG_DFS,
 				  "Init_Gain[%x] st_l2h_cur[%x] 0xdf4[%08x] short_pulse_cnt_inc[%d] long_pulse_cnt_inc[%d]\n",
@@ -1089,6 +1017,7 @@ phydm_radar_detect_dm_check(
 				  dfs->igi_cur, dfs->st_l2h_cur,
 				  radar_rpt_reg_value, short_pulse_cnt_inc,
 				  long_pulse_cnt_inc);
+		#if (RTL8812F_SUPPORT || RTL8822C_SUPPORT || RTL8814B_SUPPORT)
 			rega40_value = odm_get_bb_reg(dm, R_0xa40, MASKDWORD);
 			rega44_value = odm_get_bb_reg(dm, R_0xa44, MASKDWORD);
 			rega48_value = odm_get_bb_reg(dm, R_0xa48, MASKDWORD);
@@ -1099,6 +1028,7 @@ phydm_radar_detect_dm_check(
 				  "0xa40[%08x] 0xa44[%08x] 0xa48[%08x] 0xa4c[%08x] 0xa50[%08x] 0xa54[%08x]\n",
 				  rega40_value, rega44_value, rega48_value,
 				  rega4c_value, rega50_value, rega54_value);
+		#endif
 		} else {
 			PHYDM_DBG(dm, DBG_DFS,
 				  "Init_Gain[%x] 0x91c[%x] 0xf98[%08x] short_pulse_cnt_inc[%d] long_pulse_cnt_inc[%d]\n",
@@ -1134,24 +1064,61 @@ phydm_radar_detect_dm_check(
 		tri_long_pulse = (regf98_value & BIT(19)) ? 1 : 0;
 	}
 
+	if (tri_long_pulse){
+		PHYDM_DBG(dm, DBG_DFS, "\n");
+		PHYDM_DBG(dm, DBG_DFS, "tri_long_pulse = %d\n", tri_long_pulse);
+		dfs->pulse_flag_hist[dfs->mask_idx] = 1;
+		dfs->pulse_type_hist[dfs->mask_idx] = 1;
+		}
+	
+	else if (tri_short_pulse){
+		PHYDM_DBG(dm, DBG_DFS, "\n");
+		PHYDM_DBG(dm, DBG_DFS, "tri_short_pulse = %d\n", tri_short_pulse);
+		dfs->pulse_flag_hist[dfs->mask_idx] = 1;
+		dfs->pulse_type_hist[dfs->mask_idx] = 0;
+		}
+	
+	else{
+		dfs->pulse_flag_hist[dfs->mask_idx] = 0;
+		dfs->pulse_type_hist[dfs->mask_idx] = 0;
+		}
+
+	
+	
 	if (tri_short_pulse) {
-		phydm_radar_detect_reset(dm);
+		if (!(dm->support_ic_type & ODM_IC_JGR3_SERIES))
+			phydm_radar_detect_reset(dm);
 	}
 	if (tri_long_pulse) {
-		phydm_radar_detect_reset(dm);
+		/*
+		if (!(dm->support_ic_type & ODM_IC_JGR3_SERIES))
+			phydm_radar_detect_reset(dm);
+		*/
 		if (region_domain == PHYDM_DFS_DOMAIN_MKK) {
 			if (c_channel >= 52 && c_channel <= 64) {
 				tri_long_pulse = 0;
 			}
 		}
 		if (region_domain == PHYDM_DFS_DOMAIN_ETSI) {
-			tri_long_pulse = 0;
+			tri_long_pulse = 0; 
 		}
 	}
 
 	st_l2h_new = dfs->st_l2h_cur;
-	dfs->pulse_flag_hist[dfs->mask_idx] = tri_short_pulse | tri_long_pulse;
-	dfs->pulse_type_hist[dfs->mask_idx] = (tri_long_pulse) ? 1 : 0;
+#if (RTL8723F_SUPPORT||RTL8822C_SUPPORT)
+	if (dm->support_ic_type & ODM_IC_JGR3_SERIES) {
+		if (dfs->pulse_type_hist[dfs->mask_idx])
+			dfs->radar_type = 1;
+		else
+			dfs->radar_type = 0;
+
+		if (dfs->pulse_flag_hist[dfs->mask_idx]) {
+			if (dfs->det_jar3_en)
+				phydm_dfs_rpt_distinguish(dm);
+			phydm_radar_detect_reset(dm);
+		}
+	}
+#endif
 
 	/* PSD(not ready) */
 
@@ -1163,11 +1130,8 @@ phydm_radar_detect_dm_check(
 	} else {
 		fa_mask_th = dfs->fa_mask_th;
 	}
-	if (max_fa_in_hist >= fa_mask_th ||
-	    total_fa_in_hist >= fa_mask_th ||
-	    pre_post_now_acc_fa_in_hist >= fa_mask_th ||
-	    dfs->igi_cur >= 0x30) {
-		st_l2h_new = dfs->st_l2h_max;
+	if (total_fa_in_hist >= fa_mask_th || dfs->igi_cur >= 0x30) {
+		/* st_l2h_new = dfs->st_l2h_max; */
 		dfs->radar_det_mask_hist[index] = 1;
 		if (dfs->pulse_flag_hist[index] == 1) {
 			dfs->pulse_flag_hist[index] = 0;
@@ -1194,9 +1158,8 @@ phydm_radar_detect_dm_check(
 		for (i = 0; i < 5; i++)
 			PHYDM_DBG(dm, DBG_DFS, "%d ", dfs->fa_inc_hist[i]);
 		PHYDM_DBG(dm, DBG_DFS,
-			  "\nfa_mask_th: %d max_fa_in_hist: %d total_fa_in_hist: %d pre_post_now_acc_fa_in_hist: %d ",
-			  fa_mask_th, max_fa_in_hist, total_fa_in_hist,
-			  pre_post_now_acc_fa_in_hist);
+			  "\nfa_mask_th: %d, total_fa_in_hist: %d ",
+			  fa_mask_th, total_fa_in_hist);
 	}
 
 	sum = 0;
@@ -1208,17 +1171,26 @@ phydm_radar_detect_dm_check(
 	if (dfs->mask_hist_checked <= 5)
 		dfs->mask_hist_checked++;
 
-	if (dfs->mask_hist_checked >= 5 && dfs->pulse_flag_hist[index]) {
+	if (dfs->mask_hist_checked >= 5 && dfs->pulse_flag_hist[dfs->mask_idx]) {
 		if (sum <= 2) {
 			if (dfs->hist_cond_on) {
 				/*return the value from hist_radar_detected*/
 				radar_detected = phydm_dfs_hist_log(dm, index);
+			} else if (dfs->det_jar3_en) {
+				if (dfs->nhm_dfs_flag || dfs->b_flag) {
+					radar_detected = false;
+				} else if (dfs->pw_flag && dfs->pri_flag &&
+					   dfs->loct_flag) {
+					PHYDM_DBG(dm, DBG_DFS, "Detected type %d radar signal!\n",
+						  dfs->radar_type);
+					radar_detected = true;
+				}
 			} else {
-				if (dfs->pulse_type_hist[index] == 0)
+				if (dfs->pulse_type_hist[dfs->mask_idx] == 0)
 					dfs->radar_type = 0;
-				else if (dfs->pulse_type_hist[index] == 1)
+				else if (dfs->pulse_type_hist[dfs->mask_idx] == 1)
 					dfs->radar_type = 1;
-				radar_detected = 1;
+				radar_detected = true;
 				PHYDM_DBG(dm, DBG_DFS,
 					  "Detected type %d radar signal!\n",
 					  dfs->radar_type);
@@ -1290,7 +1262,543 @@ phydm_radar_detect_dm_check(
 
 	return radar_detected;
 }
+#if (RTL8723F_SUPPORT || RTL8822C_SUPPORT)
+void phydm_dfs_rpt_distinguish(void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _DFS_STATISTICS *dfs = &dm->dfs;
+	struct ccx_info *ccx = &dm->dm_ccx_info;
+	
+	u8 region_domain = dm->dfs_region_domain;
+	u8 c_channel = *dm->channel;
+	u8 band_width = *dm->band_width;
+	
+	u32 reg_2e08, reg_2e24, reg_2e28, reg_2e2c, reg_2e30, reg_2e34;
+	u32 reg_2e0c, reg_2e10, reg_2e20;
+	u16 pw_rpt_set[12] = {0}, pri_rpt_set[12] = {0};
+	s8 loct_rpt_set[12] = {0};
+	u8 pw_lth[10] = {255,255,255,255,255,255,255,255,255,255};
+       u16 pw_uth[10] = {255,255,255,255,255,255,255,255,255,255};
+       u8 pri_lth[10] = {255,255,255,255,255,255,255,255,255,255};
+       u8 pri_uth[10] = {255,255,255,255,255,255,255,255,255,255};
+	u8 pri_vd_max = 0, pri_vd_min = 255, rdr_tmp = 0;
+	u8 i, j, dc_cnt = 0, rdr_num = 0, rdr_cnt[10] = {0};
+	u8 short_cnt_th, long_cnt_th, loop_cnt, cnt_th, loct_diff = 0;
+	u8 pri_var_up, pri_var_low, pri_cnt_tmp, pri_cnt_fnl = 0;
+	u8 pri_cnt_th = dfs->pri_cnt_th;
 
+	/* PW : Wordlength : U(8,0) , unit: 400ns */
+	reg_2e08 = odm_get_bb_reg(dm, 0x2e08, 0xffffffff);
+	pw_rpt_set[0]=(unsigned int)(reg_2e08 & 0x000000ff);
+	pw_rpt_set[1]=(unsigned int)((reg_2e08 & 0x0000ff00)>>8);
+	pw_rpt_set[2]=(unsigned int)((reg_2e08 & 0x00ff0000)>>16);
+	pw_rpt_set[3]=(unsigned int)((reg_2e08 & 0xff000000)>>24);
+	reg_2e24 = odm_get_bb_reg(dm, 0x2e24, 0xffffffff);
+	pw_rpt_set[4]=(unsigned int)(reg_2e24 & 0x000000ff);
+	pw_rpt_set[5]=(unsigned int)((reg_2e24 & 0x0000ff00)>>8);
+	pw_rpt_set[6]=(unsigned int)((reg_2e24 & 0x00ff0000)>>16);
+	pw_rpt_set[7]=(unsigned int)((reg_2e24 & 0xff000000)>>24);
+	reg_2e28 = odm_get_bb_reg(dm, 0x2e28, 0xffffffff);
+	pw_rpt_set[8]=(unsigned int)(reg_2e28 & 0x000000ff);
+	pw_rpt_set[9]=(unsigned int)((reg_2e28 & 0x0000ff00)>>8);
+	pw_rpt_set[10]=(unsigned int)((reg_2e28 & 0x00ff0000)>>16);
+	pw_rpt_set[11]=(unsigned int)((reg_2e28 & 0xff000000)>>24);
+
+	/* PRI : Wordlength : U(8,0) , unit: 25.6us */
+	reg_2e2c = odm_get_bb_reg(dm, 0x2e2c, 0xffffffff);
+	pri_rpt_set[0]=(unsigned int)(reg_2e2c & 0x000000ff);
+	pri_rpt_set[1]=(unsigned int)((reg_2e2c & 0x0000ff00)>>8);
+	pri_rpt_set[2]=(unsigned int)((reg_2e2c & 0x00ff0000)>>16);
+	pri_rpt_set[3]=(unsigned int)((reg_2e2c & 0xff000000)>>24);
+	reg_2e30 = odm_get_bb_reg(dm, 0x2e30, 0xffffffff);
+	pri_rpt_set[4]=(unsigned int)(reg_2e30 & 0x000000ff);
+	pri_rpt_set[5]=(unsigned int)((reg_2e30 & 0x0000ff00)>>8);
+	pri_rpt_set[6]=(unsigned int)((reg_2e30 & 0x00ff0000)>>16);
+	pri_rpt_set[7]=(unsigned int)((reg_2e30 & 0xff000000)>>24);
+	reg_2e34 = odm_get_bb_reg(dm, 0x2e34, 0xffffffff);
+	pri_rpt_set[8]=(unsigned int)(reg_2e34 & 0x000000ff);
+	pri_rpt_set[9]=(unsigned int)((reg_2e34 & 0x0000ff00)>>8);
+	pri_rpt_set[10]=(unsigned int)((reg_2e34 & 0x00ff0000)>>16);
+	pri_rpt_set[11]=(unsigned int)((reg_2e34 & 0xff000000)>>24);
+	
+	/* Location : Wordlength : S(8,0) , unit: MHz */
+	reg_2e0c = odm_get_bb_reg(dm, 0x2e0c, 0xffffffff);
+	loct_rpt_set[0]=(signed char)(reg_2e0c & 0x000000ff);
+	loct_rpt_set[1]=(signed char)((reg_2e0c & 0x0000ff00)>>8);
+	loct_rpt_set[2]=(signed char)((reg_2e0c & 0x00ff0000)>>16);
+	loct_rpt_set[3]=(signed char)((reg_2e0c & 0xff000000)>>24);
+	reg_2e10 = odm_get_bb_reg(dm, 0x2e10, 0xffffffff);
+	loct_rpt_set[4]=(signed char)(reg_2e10 & 0x000000ff);
+	loct_rpt_set[5]=(signed char)((reg_2e10 & 0x0000ff00)>>8);
+	loct_rpt_set[6]=(signed char)((reg_2e10 & 0x00ff0000)>>16);
+	loct_rpt_set[7]=(signed char)((reg_2e10 & 0xff000000)>>24);
+	reg_2e20 = odm_get_bb_reg(dm, 0x2e20, 0xffffffff);
+	loct_rpt_set[8]=(signed char)(reg_2e20 & 0x000000ff);
+	loct_rpt_set[9]=(signed char)((reg_2e20 & 0x0000ff00)>>8);
+	loct_rpt_set[10]=(signed char)((reg_2e20 & 0x00ff0000)>>16);
+	loct_rpt_set[11]=(signed char)((reg_2e20 & 0xff000000)>>24);
+
+	dfs->pw_flag = false;
+	dfs->loct_flag = false;
+	dfs->pri_flag = false;
+	for (i = 0; i < 12; i++) {
+		dfs->pw_rslt[i] = 0;
+		dfs->loct_rslt[i] = 0;
+		dfs->pri_rslt[i] = 0;
+	}
+
+	// for NHMxDFS //
+	dfs->nhm_dfs_cnt = 0;
+	dfs->nhm_dfs_flag = false;
+	dfs->b_flag = false;
+
+	short_cnt_th = odm_get_bb_reg(dm, 0xa50, 0x00f00000);
+	long_cnt_th = odm_get_bb_reg(dm, 0xa4c, 0xf0000000);
+
+	if (dfs->radar_type) 
+		loop_cnt = long_cnt_th + 2;
+	else
+		loop_cnt = short_cnt_th  + 2;
+
+	if (region_domain == PHYDM_DFS_DOMAIN_ETSI)
+		loop_cnt = short_cnt_th  + 2;
+	
+	if (loop_cnt > 12)
+		loop_cnt = 12;
+
+	cnt_th = loop_cnt / 2;
+	
+	/* Calculate the difference between each element (1st Not calculated) */
+	for(i = 0; i < loop_cnt; i++)
+		dfs->loct_rslt[i] = loct_rpt_set[i];
+	for(i = 1; i < loop_cnt; i++)
+		loct_diff = loct_diff + abs(dfs->loct_rslt[i] - dfs->loct_rslt[i-1]);
+	
+	for (i = 0; i < loop_cnt; i++) {
+		if ((-2 < loct_rpt_set[i]) && (loct_rpt_set[i] < 2))
+			dc_cnt++;
+	}
+
+	if (region_domain == PHYDM_DFS_DOMAIN_FCC){
+		rdr_num = 7;
+		
+		pw_lth[0]=2;
+		pw_lth[1]=2;
+		pw_lth[2]=2;
+		pw_lth[3]=12;
+		pw_lth[4]=22;
+		pw_lth[5]=120;
+		pw_lth[6]=2;
+		
+		pw_uth[0]=3;
+		pw_uth[1]=3;
+		pw_uth[2]=15;
+		pw_uth[3]=30;
+		pw_uth[4]=60;
+		pw_uth[5]=253;
+		pw_uth[6]=3;
+		
+		pri_lth[0]=50;
+		pri_lth[1]=18;
+		pri_lth[2]=5;
+		pri_lth[3]=7;
+		pri_lth[4]=7;
+		pri_lth[5]=38;
+		pri_lth[6]=11;
+		
+		pri_uth[0]=62;
+		pri_uth[1]=130;
+		pri_uth[2]=10;
+		pri_uth[3]=21;
+		pri_uth[4]=21;
+		pri_uth[5]=80;
+		pri_uth[6]=15;
+		if (dc_cnt > dfs->dc_cnt_th){
+			pw_lth[0] = 0;
+			pw_lth[1] = 0;
+			pw_lth[2] = 0;
+			pw_lth[3] = 0;
+			pw_lth[4] = 0;
+			pw_lth[5] = 80;
+			pw_lth[6] = 0;
+			}
+		}
+	else if (region_domain == PHYDM_DFS_DOMAIN_MKK){
+		rdr_num = 8;
+		if (c_channel >= 52 && c_channel <= 64){
+			dfs->loct_diff_th = dfs->loct_diff_th + 15;
+			pw_lth[0]=1;
+			pw_lth[1]=1;
+			pw_lth[2]=1;
+			pw_lth[3]=1;
+			pw_lth[4]=1;
+			pw_lth[5]=1;
+			pw_lth[6]=1;
+			pw_lth[7]=1;
+
+			pw_uth[0]=14;
+			pw_uth[1]=40;
+			pw_uth[2]=14;
+			pw_uth[3]=40;
+			pw_uth[4]=5;
+			pw_uth[5]=5;
+			pw_uth[6]=5;
+			pw_uth[7]=5;
+
+			pri_lth[0]=35;
+			pri_lth[1]=20;
+			pri_lth[2]=35;
+			pri_lth[3]=18;
+			pri_lth[4]=32;
+			pri_lth[5]=38;
+			pri_lth[6]=40;
+			pri_lth[7]=48;
+
+			pri_uth[0]=200;
+			pri_uth[1]=200;
+			pri_uth[2]=200;
+			pri_uth[3]=200;
+			pri_uth[4]=38;
+			pri_uth[5]=44;
+			pri_uth[6]=48;
+			pri_uth[7]=55;	
+			if (dc_cnt > dfs->dc_cnt_th){
+				pw_lth[0] = 0;
+				pw_lth[1] = 0;
+				pw_lth[2] = 0;
+				pw_lth[3] = 0;
+				pw_lth[4] = 0;
+				pw_lth[5] = 0;
+				pw_lth[6] = 0;
+				pw_lth[7] = 0;
+				cnt_th--;
+				}
+			}
+		else{
+			pw_lth[0]=1;
+			pw_lth[1]=2;
+			pw_lth[2]=4;
+			pw_lth[3]=2;
+			pw_lth[4]=12;
+			pw_lth[5]=22;
+			pw_lth[6]=100;
+			pw_lth[7]=2;
+
+			pw_uth[0]=2;
+			pw_uth[1]=3;
+			pw_uth[2]=6;
+			pw_uth[3]=15;
+			pw_uth[4]=30;
+			pw_uth[5]=60;
+			pw_uth[6]=300;
+			pw_uth[7]=3;
+
+			pri_lth[0]=33;
+			pri_lth[1]=35;
+			pri_lth[2]=130;
+			pri_lth[3]=5;
+			pri_lth[4]=7;
+			pri_lth[5]=7;
+			pri_lth[6]=35;
+			pri_lth[7]=11;
+
+			pri_uth[0]=73;
+			pri_uth[1]=75;
+			pri_uth[2]=170;
+			pri_uth[3]=10;
+			pri_uth[4]=22;
+			pri_uth[5]=22;
+			pri_uth[6]=86;
+			pri_uth[7]=15;
+			if (dc_cnt > dfs->dc_cnt_th){
+				pw_lth[0] = 0;
+				pw_lth[1] = 0;
+				pw_lth[2] = 0;
+				pw_lth[3] = 0;
+				pw_lth[4] = 0;
+				pw_lth[5] = 0;
+				pw_lth[6] = 80;
+				pw_lth[7] = 0;
+				}
+			}
+		}
+	else if (region_domain == PHYDM_DFS_DOMAIN_ETSI){
+		rdr_num = 6;
+		pw_lth[0]=1;
+		pw_lth[1]=1;
+		pw_lth[2]=1;
+		pw_lth[3]=40;
+		pw_lth[4]=1;
+		pw_lth[5]=1;
+	
+		pw_uth[0]=15;
+		pw_uth[1]=45;
+		pw_uth[2]=45;
+		pw_uth[3]=90;
+		pw_uth[4]=6;
+		pw_uth[5]=6;
+
+		pri_lth[0]=35;
+		pri_lth[1]=21;
+		pri_lth[2]=8;
+		pri_lth[3]=8;
+		pri_lth[4]=87;
+		pri_lth[5]=29;
+
+		pri_uth[0]=215;
+		pri_uth[1]=215;
+		pri_uth[2]=19;
+		pri_uth[3]=22;
+		pri_uth[4]=144;
+		pri_uth[5]=108;
+		if (dc_cnt > dfs->dc_cnt_th){
+			pw_lth[0] = 0;
+			pw_lth[1] = 0;
+			pw_lth[2] = 0;
+			pw_lth[3] = 0;
+			pw_lth[4] = 0;
+			pw_lth[5] = 0;
+			}
+		}	
+
+	for (i = 0; i < loop_cnt; i++) {
+		dfs->pw_rslt[i] = pw_rpt_set[i];
+		dfs->pri_rslt[i] = pri_rpt_set[i];
+		for (j = 0; j < rdr_num; j++) {
+			if (dfs->radar_type) {
+				if ((pw_lth[j] <= dfs->pw_rslt[i]) && (dfs->pw_rslt[i] <= pw_uth[j]))
+					rdr_cnt[j]++;
+			} else {
+				if ((pw_lth[j] <= dfs->pw_rslt[i]) && (dfs->pw_rslt[i] <= pw_uth[j]) &&
+				    (pri_lth[j] <= dfs->pri_rslt[i]) && (dfs->pri_rslt[i] <= pri_uth[j])) {
+					rdr_cnt[j]++;
+					if (dfs->pri_rslt[i] > pri_vd_max)
+						pri_vd_max = dfs->pri_rslt[i];
+					if (dfs->pri_rslt[i] < pri_vd_min)
+						pri_vd_min = dfs->pri_rslt[i];
+				}
+			}
+		}
+	}
+
+	/* Pattern Judgement */
+	for (i = 0; i < rdr_num; i++){
+		if (rdr_cnt[i] >= cnt_th){
+			dfs->pw_flag = true;
+			rdr_tmp = i;
+			}
+		}	
+	
+	/* Add NHM to decide the validity of the three flags */
+	/* Use for chaotic open space */
+	if (dfs->nhm_dfs_en) {
+		for (i = 0; i <= (NHM_RPT_NUM - 1); i++) {
+			if (ccx->nhm_result[i] > 0)
+				break;
+		}
+		for (j = (i + 1); j <= (NHM_RPT_NUM - 1); j++) {
+			if (ccx->nhm_result[j] > 0)
+				dfs->nhm_dfs_cnt++;
+		}
+		if (dfs->nhm_dfs_cnt > dfs->nhm_cnt_th) {
+			dfs->nhm_dfs_flag = true;
+			cnt_th = loop_cnt;
+		}
+	}
+	if (dm->support_ability & ODM_BB_ENV_MONITOR) {
+		if ((100-((ccx->nhm_rpt_sum * 100) >> 8)) >= dfs->nhm_dty_th) {
+			dfs->b_flag = true;
+			cnt_th = loop_cnt;
+		}
+	}  
+
+	/* Relax */
+	if (!(dfs->idle_mode)) {
+		pri_cnt_th--;
+		if (!(region_domain == PHYDM_DFS_DOMAIN_ETSI)){
+			dfs->pri_var_offset = 15;
+			if (region_domain == PHYDM_DFS_DOMAIN_MKK)
+				dfs->pri_var_offset = 5 + 10*pri_vd_min/20;
+			}
+		else
+			dfs->pri_var_offset = dfs->pri_var_tp_offset;	
+	}
+	
+	// Mode approximation for PRI
+	for (i = 0; i < (loop_cnt - 1); i++) {
+		pri_cnt_tmp = 0;
+		for (j = 0; j < (loop_cnt - 1); j++) {
+			if ((i == j) || (dfs->pri_rslt[i] <= 4))
+				continue;
+			if (dfs->pri_rslt[j] > (255 - dfs->pri_var_offset))
+				pri_var_up = 255;
+			else
+				pri_var_up = dfs->pri_rslt[j] + dfs->pri_var_offset;
+			if (dfs->pri_var_offset >= dfs->pri_rslt[j])
+				pri_var_low = 0;
+			else
+				pri_var_low = dfs->pri_rslt[j] - dfs->pri_var_offset;
+			if ((dfs->pri_rslt[i] <= pri_var_up) && (dfs->pri_rslt[i] >= pri_var_low) &&
+			    (dfs->pri_rslt[i] <= pri_vd_max) && (dfs->pri_rslt[i] >= pri_vd_min))
+				pri_cnt_tmp++;
+		}
+		if (pri_cnt_tmp > pri_cnt_fnl)
+			pri_cnt_fnl = pri_cnt_tmp;
+	}
+
+	// Advanced PRI Judgement (Bypass for long pulse flag)
+	if (pri_cnt_fnl != 0)
+		pri_cnt_fnl++;
+
+	/* PRI */
+	if (dfs->radar_type)
+		dfs->pri_flag= true;
+	else if (pri_cnt_fnl >= pri_cnt_th)
+		dfs->pri_flag= true;
+	/* For the case of SRTC */
+	else if ((dfs->pri_rslt[0] == 0) && (dfs->pri_rslt[1] > 0) &&
+		 (dfs->pri_rslt[2] == 0) && (dfs->pri_rslt[3] > 0))
+		dfs->pri_flag= true;
+	else if ((dfs->pri_rslt[0] > 0) && (dfs->pri_rslt[1] == 0) &&
+		 (dfs->pri_rslt[2] > 0) && (dfs->pri_rslt[3] == 0))
+		dfs->pri_flag= true;
+	else if (!(dfs->pri_flag_en))
+		dfs->pri_flag= true;
+
+	if (region_domain == PHYDM_DFS_DOMAIN_MKK){
+		if (c_channel >= 52 && c_channel <= 64){
+			if (!(dfs->idle_mode))
+				dfs->pri_flag= true;     // MKK, 52<=ch<=64 , TP mode	
+			}
+		}
+
+	/* PW */
+	if (!(dfs->pw_flag_en))
+		dfs->pw_flag = true;
+
+	/* LOCT */
+	if (!(dfs->idle_mode))
+		dfs->loct_diff_th = dfs->loct_diff_th + 15;
+	if (loct_diff <= dfs->loct_diff_th)
+		dfs->loct_flag = true;
+	else if (dfs->radar_type)
+		dfs->loct_flag = true;
+	else if (!(dfs->loct_flag_en))
+		dfs->loct_flag = true;
+
+	if (dfs->det_print_jar3) {
+		if (dfs->nhm_dfs_flag || dfs->b_flag)
+			PHYDM_DBG(dm, DBG_DFS, "Anti-FRD Rdr Drop\n");
+		if (!(dfs->pw_flag_en) || !(dfs->loct_flag_en) || !(dfs->pri_flag_en))
+			PHYDM_DBG(dm, DBG_DFS, "Byps flag scenario\n");
+	       if (dc_cnt > dfs->dc_cnt_th)
+		   	PHYDM_DBG(dm, DBG_DFS, "Radar is near DC\n");
+		if (!(dfs->pw_flag))
+			PHYDM_DBG(dm, DBG_DFS, "- PW/PRI-J Failure\n");
+		if (!(dfs->loct_flag))
+			PHYDM_DBG(dm, DBG_DFS, "- Loct-J Failure\n");
+		if (!(dfs->pri_flag))
+			PHYDM_DBG(dm, DBG_DFS, "- Adv-PRI-J Failure\n");
+		if (!(dfs->pw_flag) || !(dfs->pri_flag) || !(dfs->loct_flag))
+			PHYDM_DBG(dm, DBG_DFS, "Suspected radar result is dropped by SW mechanism !!\n");
+
+		PHYDM_DBG(dm, DBG_DFS, "\n");
+		PHYDM_DBG(dm, DBG_DFS, "The current information: ([Lower bound / Upper bound])\n");
+		PHYDM_DBG(dm, DBG_DFS, "pw_th1 : [%d, %d], pw_th2 : [%d, %d], pw_th3 : [%d, %d]\n",
+			  pw_lth[0], pw_uth[0], pw_lth[1], pw_uth[1],
+			  pw_lth[2], pw_uth[2]);
+		PHYDM_DBG(dm, DBG_DFS, "pw_th4 : [%d, %d], pw_th5 : [%d, %d], pw_th6 : [%d, %d] \n",
+			  pw_lth[3], pw_uth[3], pw_lth[4],
+			  pw_uth[4], pw_lth[5], pw_uth[5]);
+		PHYDM_DBG(dm, DBG_DFS, "pw_th7 : [%d, %d], pw_th8 : [%d, %d]\n",
+			  pw_lth[6], pw_uth[6], pw_lth[7], pw_uth[7]);
+		PHYDM_DBG(dm, DBG_DFS, "pri_th1 : [%d, %d], pri_th2 : [%d, %d], pri_th3 : [%d, %d]\n",
+			  pri_lth[0], pri_uth[0], pri_lth[1], pri_uth[1],
+			  pri_lth[2], pri_uth[2]);
+		PHYDM_DBG(dm, DBG_DFS, "pri_th4 : [%d, %d], pri_th5 : [%d, %d], pri_th6 : [%d, %d]\n",
+			  pri_lth[3], pri_uth[3], pri_lth[4], pri_uth[4],
+			  pri_lth[5], pri_uth[5]);
+		PHYDM_DBG(dm, DBG_DFS, "pri_th7 : [%d, %d], pri_th8 : [%d, %d]\n",
+			  pri_lth[6], pri_uth[6], pri_lth[7], pri_uth[7]);
+
+		if (!(dfs->idle_mode))
+			PHYDM_DBG(dm, DBG_DFS, "loct_diff_th = [%d](Relax for TP mode)\n",
+				  dfs->loct_diff_th);
+		else
+			PHYDM_DBG(dm, DBG_DFS, "loct_diff_th = [%d](Idle mode)\n",
+				  dfs->loct_diff_th);
+
+		if (!(dfs->idle_mode)) {
+			PHYDM_DBG(dm, DBG_DFS, "pri_var_offset = [%d] (Relax for TP mode)\n",
+				  dfs->pri_var_offset);
+			PHYDM_DBG(dm, DBG_DFS, "pri_cnt_th = [%d] (Relax for TP mode)\n",
+				  pri_cnt_th);
+		} else {
+			PHYDM_DBG(dm, DBG_DFS, "pri_var_offset = [%d] (Idle mode)\n",
+				  dfs->pri_var_offset);
+			PHYDM_DBG(dm, DBG_DFS, "pri_cnt_th = [%d] (Idle mode)\n",
+				  pri_cnt_th);
+		}
+
+		PHYDM_DBG(dm, DBG_DFS, "\n");
+		PHYDM_DBG(dm, DBG_DFS, "loop_cnt = [%d]\n", loop_cnt);
+		if (dfs->nhm_dfs_flag) {
+			PHYDM_DBG(dm, DBG_DFS, "Nmode cnt = %d!\n",
+				  dfs->nhm_dfs_cnt);
+		} 
+		else if (dfs->b_flag) {
+			PHYDM_DBG(dm, DBG_DFS, "Bmode DTY = %d\n",
+				  (100-((ccx->nhm_rpt_sum * 100) >> 8)));
+		} 
+		else {
+			PHYDM_DBG(dm, DBG_DFS, "cnt_th = [%d] (Default : Half of loop cnt)\n",
+				  cnt_th);
+			PHYDM_DBG(dm, DBG_DFS, "Bmode DTY = %d\n",
+				  (100-((ccx->nhm_rpt_sum * 100) >> 8)));
+		} 
+
+		PHYDM_DBG(dm, DBG_DFS, "\n");
+		PHYDM_DBG(dm, DBG_DFS, "The current report:\n");
+		PHYDM_DBG(dm, DBG_DFS, "pw_rpt(1-12) = [%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d]\n",
+			  pw_rpt_set[0], pw_rpt_set[1], pw_rpt_set[2],
+			  pw_rpt_set[3], pw_rpt_set[4], pw_rpt_set[5],
+			  pw_rpt_set[6], pw_rpt_set[7], pw_rpt_set[8],
+			  pw_rpt_set[9], pw_rpt_set[10], pw_rpt_set[11]);
+		PHYDM_DBG(dm, DBG_DFS, "loct_rpt(1-12) = [%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d]\n",
+			  loct_rpt_set[0], loct_rpt_set[1],
+			  loct_rpt_set[2], loct_rpt_set[3],
+			  loct_rpt_set[4], loct_rpt_set[5],
+			  loct_rpt_set[6], loct_rpt_set[7],
+			  loct_rpt_set[8], loct_rpt_set[9],
+			  loct_rpt_set[10], loct_rpt_set[11]);
+		PHYDM_DBG(dm, DBG_DFS, "pri_rpt(1-12) = [%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d]\n",
+			  pri_rpt_set[0], pri_rpt_set[1],
+			  pri_rpt_set[2], pri_rpt_set[3],
+			  pri_rpt_set[4], pri_rpt_set[5],
+			  pri_rpt_set[6], pri_rpt_set[7],
+			  pri_rpt_set[8], pri_rpt_set[9],
+			  pri_rpt_set[10], pri_rpt_set[11]);
+
+		PHYDM_DBG(dm, DBG_DFS, "\n");
+		PHYDM_DBG(dm, DBG_DFS, "dc_cnt = [%d]\n", dc_cnt);
+		PHYDM_DBG(dm, DBG_DFS, "loct_diff = [%d]\n", loct_diff);
+
+		if (pri_vd_max == 0 && pri_vd_min == 255)
+			PHYDM_DBG(dm, DBG_DFS, "No vaild pri_max and pri_min");
+		else
+			PHYDM_DBG(dm, DBG_DFS, "pri_vaild_max = %d, pri_vaild_min = %d\n",
+				  pri_vd_max, pri_vd_min);
+		PHYDM_DBG(dm, DBG_DFS, "advanced_pri_cnt = %d\n",
+			  pri_cnt_fnl);
+
+		PHYDM_DBG(dm, DBG_DFS, "radar_class_cnt[1-8] = [%d, %d, %d, %d, %d, %d, %d, %d]\n",
+			  rdr_cnt[0], rdr_cnt[1], rdr_cnt[2], rdr_cnt[3],
+			  rdr_cnt[4], rdr_cnt[5], rdr_cnt[6], rdr_cnt[7]);
+	}
+}
+#endif
+
+#if (RTL8814A_SUPPORT || RTL8822B_SUPPORT || RTL8821C_SUPPORT)
 void phydm_dfs_histogram_radar_distinguish(
 	void *dm_void)
 {
@@ -1309,42 +1817,17 @@ void phydm_dfs_histogram_radar_distinguish(
 	u8 max_pri_cnt_fcc_g1_th = 0, max_pri_cnt_fcc_g3_th = 0;
 	u8 safe_pri_pw_diff_th = 0, safe_pri_pw_diff_fcc_th = 0;
 	u8 safe_pri_pw_diff_w53_th = 0, safe_pri_pw_diff_fcc_idle_th = 0;
-	u16 j = 0;
-	u32 dfs_hist1_peak_index = 0, dfs_hist2_peak_index = 0;
+	u8 j = 0;
 	u32 dfs_hist1_pw = 0, dfs_hist2_pw = 0, g_pw[6] = {0};
-	u32 g_peakindex[16] = {0}, g_mask_32 = 0, false_peak_hist1 = 0;
-	u32 false_peak_hist2_above10 = 0, false_peak_hist2_above0 = 0;
 	u32 dfs_hist1_pri = 0, dfs_hist2_pri = 0, g_pri[6] = {0};
-	u32 pw_sum_g0g5 = 0, pw_sum_g1g2g3g4 = 0;
-	u32 pri_sum_g0g5 = 0, pri_sum_g1g2g3g4 = 0;
-	u32 pw_sum_ss_g1g2g3g4 = 0, pri_sum_ss_g1g2g3g4 = 0;
-	u32 max_pri_cnt = 0, max_pw_cnt = 0;
+	u8 pw_sum_g0g5 = 0, pw_sum_g1g2g3g4 = 0;
+	u8 pri_sum_g0g5 = 0, pri_sum_g1g2g3g4 = 0;
+	u16 pw_sum_ss_g1g2g3g4 = 0, pri_sum_ss_g1g2g3g4 = 0;
+	u8 max_pri_cnt = 0, max_pw_cnt = 0;
 	#if (RTL8721D_SUPPORT)
 	if (dm->support_ic_type & (ODM_RTL8721D))
 		return;
 	#endif
-
-	/*read peak index hist report*/
-	odm_set_bb_reg(dm, 0x19e4, BIT(22) | BIT(23), 0x0);
-	dfs_hist1_peak_index = odm_get_bb_reg(dm, 0xf5c, 0xffffffff);
-	dfs_hist2_peak_index = odm_get_bb_reg(dm, 0xf74, 0xffffffff);
-
-	g_peakindex[15] = ((dfs_hist1_peak_index & 0x0000000f) >> 0);
-	g_peakindex[14] = ((dfs_hist1_peak_index & 0x000000f0) >> 4);
-	g_peakindex[13] = ((dfs_hist1_peak_index & 0x00000f00) >> 8);
-	g_peakindex[12] = ((dfs_hist1_peak_index & 0x0000f000) >> 12);
-	g_peakindex[11] = ((dfs_hist1_peak_index & 0x000f0000) >> 16);
-	g_peakindex[10] = ((dfs_hist1_peak_index & 0x00f00000) >> 20);
-	g_peakindex[9] = ((dfs_hist1_peak_index & 0x0f000000) >> 24);
-	g_peakindex[8] = ((dfs_hist1_peak_index & 0xf0000000) >> 28);
-	g_peakindex[7] = ((dfs_hist2_peak_index & 0x0000000f) >> 0);
-	g_peakindex[6] = ((dfs_hist2_peak_index & 0x000000f0) >> 4);
-	g_peakindex[5] = ((dfs_hist2_peak_index & 0x00000f00) >> 8);
-	g_peakindex[4] = ((dfs_hist2_peak_index & 0x0000f000) >> 12);
-	g_peakindex[3] = ((dfs_hist2_peak_index & 0x000f0000) >> 16);
-	g_peakindex[2] = ((dfs_hist2_peak_index & 0x00f00000) >> 20);
-	g_peakindex[1] = ((dfs_hist2_peak_index & 0x0f000000) >> 24);
-	g_peakindex[0] = ((dfs_hist2_peak_index & 0xf0000000) >> 28);
 
 	/*read pulse width hist report*/
 	odm_set_bb_reg(dm, 0x19e4, BIT(22) | BIT(23), 0x1);
@@ -1395,8 +1878,6 @@ void phydm_dfs_histogram_radar_distinguish(
 	for (i = 0; i < 6; i++) {
 		dfs->pw_hold_sum[i] = 0;
 		dfs->pri_hold_sum[i] = 0;
-		dfs->pw_long_hold_sum[i] = 0;
-		dfs->pri_long_hold_sum[i] = 0;
 	}
 
 	if (dfs->idle_mode == 1)
@@ -1410,51 +1891,27 @@ void phydm_dfs_histogram_radar_distinguish(
 		/*@collect whole histogram report may take some time
 		 *so we add the counter of 2 time slots in FCC and ETSI
 		 */
-		if (region_domain == 1 || region_domain == 3) {
-			dfs->pw_hold_sum[i] = dfs->pw_hold_sum[i] +
-				dfs->pw_hold[(dfs->hist_idx + 1) % 3][i] +
-				dfs->pw_hold[(dfs->hist_idx + 2) % 3][i];
-			dfs->pri_hold_sum[i] = dfs->pri_hold_sum[i] +
-				dfs->pri_hold[(dfs->hist_idx + 1) % 3][i] +
-				dfs->pri_hold[(dfs->hist_idx + 2) % 3][i];
-		} else{
-		/*@collect whole histogram report may take some time,
-		 *so we add the counter of 3 time slots in MKK or else
-		 */
-			dfs->pw_hold_sum[i] = dfs->pw_hold_sum[i] +
-				dfs->pw_hold[(dfs->hist_idx + 1) % 4][i] +
-				dfs->pw_hold[(dfs->hist_idx + 2) % 4][i] +
-				dfs->pw_hold[(dfs->hist_idx + 3) % 4][i];
-			dfs->pri_hold_sum[i] = dfs->pri_hold_sum[i] +
-				dfs->pri_hold[(dfs->hist_idx + 1) % 4][i] +
-				dfs->pri_hold[(dfs->hist_idx + 2) % 4][i] +
-				dfs->pri_hold[(dfs->hist_idx + 3) % 4][i];
-		}
+		dfs->pw_hold_sum[i] = dfs->pw_hold_sum[i] +
+			dfs->pw_hold[(dfs->hist_idx + 1) % 3][i] +
+			dfs->pw_hold[(dfs->hist_idx + 2) % 3][i];
+		dfs->pri_hold_sum[i] = dfs->pri_hold_sum[i] +
+			dfs->pri_hold[(dfs->hist_idx + 1) % 3][i] +
+			dfs->pri_hold[(dfs->hist_idx + 2) % 3][i];
 	}
 	/*@For long radar type*/
-	for (i = 0; i < 6; i++) {
-		dfs->pw_long_hold[dfs->hist_long_idx][i] = (u8)g_pw[i];
-		dfs->pri_long_hold[dfs->hist_long_idx][i] = (u8)g_pri[i];
-		/*@collect whole histogram report may take some time,
-		 *so we add the counter of 299 time slots for long radar
-		 */
-		for (j = 1; j < 300; j++) {
+	for (j = 1; j < 4; j++) {
 		dfs->pw_long_hold_sum[i] = dfs->pw_long_hold_sum[i] +
-			dfs->pw_long_hold[(dfs->hist_long_idx + j) % 300][i];
+			dfs->pw_hold[(dfs->hist_long_idx + j) % 4][i];
 		dfs->pri_long_hold_sum[i] = dfs->pri_long_hold_sum[i] +
-			dfs->pri_long_hold[(dfs->hist_long_idx + j) % 300][i];
-		}
+			dfs->pri_hold[(dfs->hist_long_idx + j) % 4][i];
 	}
+
 	dfs->hist_idx++;
-	dfs->hist_long_idx++;
-	if (dfs->hist_long_idx == 300)
-		dfs->hist_long_idx = 0;
-	if (region_domain == 1 || region_domain == 3) {
-		if (dfs->hist_idx == 3)
-			dfs->hist_idx = 0;
-	} else if (dfs->hist_idx == 4) {
+	if (dfs->hist_idx == 3)
 		dfs->hist_idx = 0;
-	}
+	dfs->hist_long_idx++;
+	if (dfs->hist_long_idx == 4)
+		dfs->hist_long_idx = 0;
 
 	max_pri_cnt = 0;
 	max_pri_idx = 0;
@@ -1508,20 +1965,14 @@ void phydm_dfs_histogram_radar_distinguish(
 	/*The value may less than the normal variance,
 	 *since the variable type is int (not float)
 	 */
-		dfs->pw_std = (u16)(pw_sum_ss_g1g2g3g4 / 4);
-		dfs->pri_std = (u16)(pri_sum_ss_g1g2g3g4 / 4);
+		dfs->pw_std = (u8)(pw_sum_ss_g1g2g3g4 / 4);
+		dfs->pri_std = (u8)(pri_sum_ss_g1g2g3g4 / 4);
 
 	if (region_domain == 1) {
 		dfs->pri_type3_4_flag = 1;	/*@ETSI flag*/
 
-		/*PRI judgment conditions for short radar type*/
-		/*ratio of reasonable group and illegal group &&
-		 *pri variation of short radar should be large (=6)
-		 */
-		if (max_pri_idx != 4 && dfs->pri_hold_sum[5] > 0)
-			dfs->pri_cond2 = 0;
-		else
-			dfs->pri_cond2 = 1;
+		/*(OTA) Cancel long PRI case*/
+		dfs->pri_cond2 = 1;
 
 		/*reasonable group shouldn't large*/
 		if ((pri_sum_g0g5 + pri_sum_g1g2g3g4) / pri_sum_g0g5 > 2 &&
@@ -1535,12 +1986,8 @@ void phydm_dfs_histogram_radar_distinguish(
 			 max_pri_cnt >= max_pri_cnt_fcc_g1_th)
 			dfs->pri_cond4 = 1;
 
-		/*we set threshold = 7 (>4) for distinguishing type 3,4 (g3)*/
-		if (max_pri_idx == 1 && dfs->pri_hold_sum[3] +
-		    dfs->pri_hold_sum[4] + dfs->pri_hold_sum[5] > 0)
-			dfs->pri_cond5 = 0;
-		else
-			dfs->pri_cond5 = 1;
+		/*(OTA) Cancel the condition (type 3,4 distinction)*/
+		dfs->pri_cond5 = 1;
 
 		if (dfs->pri_cond1 && dfs->pri_cond2 && dfs->pri_cond3 &&
 		    dfs->pri_cond4 && dfs->pri_cond5)
@@ -1727,12 +2174,6 @@ void phydm_dfs_histogram_radar_distinguish(
 		dfs_pri_thd4 = (u8)odm_get_bb_reg(dm, 0x19ec, 0x00ff0000);
 		dfs_pri_thd5 = (u8)odm_get_bb_reg(dm, 0x19ec, 0xff000000);
 
-		PHYDM_DBG(dm, DBG_DFS, "peak index hist\n");
-		PHYDM_DBG(dm, DBG_DFS, "dfs_hist_peak_index=%x %x\n",
-			  dfs_hist1_peak_index, dfs_hist2_peak_index);
-		PHYDM_DBG(dm, DBG_DFS, "g_peak_index_hist = ");
-		for (i = 0; i < 16; i++)
-			PHYDM_DBG(dm, DBG_DFS, " %x", g_peakindex[i]);
 		PHYDM_DBG(dm, DBG_DFS, "\ndfs_pw_thd=%d %d %d %d %d\n",
 			  dfs_pw_thd1, dfs_pw_thd2, dfs_pw_thd3,
 			  dfs_pw_thd4, dfs_pw_thd5);
@@ -1787,13 +2228,6 @@ void phydm_dfs_histogram_radar_distinguish(
 		PHYDM_DBG(dm, DBG_DFS, "idle_mode = %d\n", dfs->idle_mode);
 		PHYDM_DBG(dm, DBG_DFS, "pw_standard = %d\n", dfs->pw_std);
 		PHYDM_DBG(dm, DBG_DFS, "pri_standard = %d\n", dfs->pri_std);
-		for (j = 0; j < 4; j++) {
-			for (i = 0; i < 6; i++) {
-				PHYDM_DBG(dm, DBG_DFS, "pri_hold = %d ",
-					  dfs->pri_hold[j][i]);
-			}
-			PHYDM_DBG(dm, DBG_DFS, "\n");
-		}
 		PHYDM_DBG(dm, DBG_DFS, "\n");
 		PHYDM_DBG(dm, DBG_DFS,
 			  "pri_cond1 = %d, pri_cond2 = %d, pri_cond3 = %d, pri_cond4 = %d, pri_cond5 = %d\n",
@@ -1805,7 +2239,7 @@ void phydm_dfs_histogram_radar_distinguish(
 			  safe_pri_pw_diff_th);
 	}
 }
-
+#endif
 boolean phydm_dfs_hist_log(void *dm_void, u8 index)
 {
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
@@ -1951,22 +2385,6 @@ boolean phydm_dfs_hist_log(void *dm_void, u8 index)
 			PHYDM_DBG(dm, DBG_DFS, "\n");
 			PHYDM_DBG(dm, DBG_DFS, "idle_mode = %d\n",
 				  dfs->idle_mode);
-			PHYDM_DBG(dm, DBG_DFS,
-				  "long_radar_pw_hold_sum = %d %d %d %d %d %d\n",
-				  dfs->pw_long_hold_sum[0],
-				  dfs->pw_long_hold_sum[1],
-				  dfs->pw_long_hold_sum[2],
-				  dfs->pw_long_hold_sum[3],
-				  dfs->pw_long_hold_sum[4],
-				  dfs->pw_long_hold_sum[5]);
-			PHYDM_DBG(dm, DBG_DFS,
-				  "long_radar_pri_hold_sum = %d %d %d %d %d %d\n",
-				  dfs->pri_long_hold_sum[0],
-				  dfs->pri_long_hold_sum[1],
-				  dfs->pri_long_hold_sum[2],
-				  dfs->pri_long_hold_sum[3],
-				  dfs->pri_long_hold_sum[4],
-				  dfs->pri_long_hold_sum[5]);
 		}
 		/* @Long radar should satisfy three conditions */
 		if (dfs->long_radar_flag == 1) {
@@ -1995,7 +2413,6 @@ boolean phydm_radar_detect(void *dm_void)
 {
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	struct _DFS_STATISTICS *dfs = &dm->dfs;
-	boolean enable_DFS = false;
 	boolean radar_detected = false;
 
 	if (dm->support_ic_type & ODM_IC_JGR3_SERIES) {
@@ -2034,53 +2451,35 @@ boolean phydm_radar_detect(void *dm_void)
 			odm_set_bb_reg(dm, R_0x918, 0x00001f00,
 				       dfs->pwdb_th_cur);
 	}
-
 	dfs->igi_pre = dfs->igi_cur;
 
 	phydm_dfs_dynamic_setting(dm);
+	#if (RTL8814A_SUPPORT || RTL8822B_SUPPORT || RTL8821C_SUPPORT)
 	if (dm->support_ic_type & (ODM_RTL8814A | ODM_RTL8822B | ODM_RTL8821C))
 		phydm_dfs_histogram_radar_distinguish(dm);
+	#endif
 	radar_detected = phydm_radar_detect_dm_check(dm);
 
-	if (dm->support_ic_type & (ODM_RTL8198F | ODM_RTL8822C | ODM_RTL8812F |
-				   ODM_RTL8197G)) {
-		if (odm_get_bb_reg(dm, R_0xa40, BIT(15)))
-			enable_DFS = true;
-	#if (RTL8721D_SUPPORT)
-	} else if (dm->support_ic_type & (ODM_RTL8721D)) {
-		if (odm_get_bb_reg(dm, R_0xf58, BIT(29)))
-			enable_DFS = true;
-	#endif
-	} else if (dm->support_ic_type & (ODM_RTL8814B)) {
-		if (dm->seg1_dfs_flag == 1) {
-			if (odm_get_bb_reg(dm, R_0xa6c, BIT(15)))
-				enable_DFS = true;
-		} else if (odm_get_bb_reg(dm, R_0xa40, BIT(15)))
-			enable_DFS = true;
-	} else {
-		if (odm_get_bb_reg(dm, R_0x924, BIT(15)))
-			enable_DFS = true;
-	}
-
-	if (enable_DFS && radar_detected) {
+	if (radar_detected) {
+		/*
 		PHYDM_DBG(dm, DBG_DFS,
-			  "Radar detect: enable_DFS:%d, radar_detected:%d\n",
-			  enable_DFS, radar_detected);
+			  "Radar detect: %d\n", radar_detected);
+		*/
 		phydm_radar_detect_reset(dm);
 		if (dfs->dbg_mode == 1) {
 			PHYDM_DBG(dm, DBG_DFS,
-				  "Radar is detected in DFS dbg mode.\n");
+				  "Radar is detected in DFS dbg mode!!!!!!!!!!!\n");
 			radar_detected = 0;
 		}
 	}
 
-	if (enable_DFS && dfs->sw_trigger_mode == 1) {
+	if (dfs->sw_trigger_mode) {
 		radar_detected = 1;
 		PHYDM_DBG(dm, DBG_DFS,
 			  "Radar is detected in DFS SW trigger mode.\n");
 	}
 
-	return enable_DFS && radar_detected;
+	return radar_detected;
 }
 
 void phydm_dfs_hist_dbg(void *dm_void, char input[][16], u32 *_used,
@@ -2089,7 +2488,7 @@ void phydm_dfs_hist_dbg(void *dm_void, char input[][16], u32 *_used,
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	struct _DFS_STATISTICS *dfs = &dm->dfs;
 	char help[] = "-h";
-	u32 argv[30] = {0};
+	u32 argv[5] = {0};
 	u32 used = *_used;
 	u32 out_len = *_out_len;
 	u8 i;
@@ -2166,13 +2565,45 @@ void phydm_dfs_hist_dbg(void *dm_void, char input[][16], u32 *_used,
 		PDM_SNPF(out_len, used, output + used, out_len - used,
 			 "{27} type4_safe_pri_sum_th = %d\n",
 			 dfs->type4_safe_pri_sum_th);
+		PDM_SNPF(out_len, used, output + used, out_len - used,
+			"{28} fa_mask_th = %d\n",
+			dfs->fa_mask_th);
+		PDM_SNPF(out_len, used, output + used, out_len - used,
+			"{29} nhm_cnt_th = %d\n",
+			dfs->nhm_cnt_th);
+		PDM_SNPF(out_len, used, output + used, out_len - used,
+			"{30} nhm_dty_th = %d\n",
+			dfs->nhm_dty_th);
+		PDM_SNPF(out_len, used, output + used, out_len - used,
+			"{31} pw_flag_en = %d\n",
+			dfs->pw_flag_en);
+		PDM_SNPF(out_len, used, output + used, out_len - used,
+			"{32} loct_flag_en = %d\n",
+			dfs->loct_flag_en);
+		PDM_SNPF(out_len, used, output + used, out_len - used,
+			"{33} pri_flag_en = %d\n",
+			dfs->pri_flag_en);
+		PDM_SNPF(out_len, used, output + used, out_len - used,
+			"{34} pri_var_offset = %d\n",
+			dfs->pri_var_offset);
+		PDM_SNPF(out_len, used, output + used, out_len - used,
+			"{35} pri_var_tp_offset = %d\n",
+			dfs->pri_var_tp_offset);
+		PDM_SNPF(out_len, used, output + used, out_len - used,
+			"{36} pri_cnt_th = %d\n",
+			dfs->pri_cnt_th);
+		PDM_SNPF(out_len, used, output + used, out_len - used,
+			"{37} loct_diff_th = %d\n",
+			dfs->loct_diff_th);
+		PDM_SNPF(out_len, used, output + used, out_len - used,
+			"{38} dc_cnt_th = %d\n",
+			dfs->dc_cnt_th);
 	} else {
 		PHYDM_SSCANF(input[1], DCMD_DECIMAL, &argv[0]);
 
-		for (i = 1; i < 30; i++) {
-			if (input[i + 1])
-				PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL,
-					     &argv[i]);
+		for (i = 1; i < 5; i++) {
+			PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL,
+				     &argv[i]);
 		}
 		if (argv[0] == 0) {
 			dfs->pri_hist_th = (u8)argv[1];
@@ -2314,6 +2745,61 @@ void phydm_dfs_hist_dbg(void *dm_void, char input[][16], u32 *_used,
 			PDM_SNPF(out_len, used, output + used, out_len - used,
 				 "type4_safe_pri_sum_th = %d\n",
 				 dfs->type4_safe_pri_sum_th);
+		} else if (argv[0] == 28) {
+			dfs->fa_mask_th = (u8)argv[1];
+			PDM_SNPF(out_len, used, output + used, out_len - used,
+				"fa_mask_th = %d\n",
+				dfs->fa_mask_th);
+		} else if (argv[0] == 29) {
+			dfs->nhm_cnt_th = (u8)argv[1];
+			PDM_SNPF(out_len, used, output + used, out_len - used,
+				"nhm_cnt_th = %d\n",
+				dfs->nhm_cnt_th);
+		} else if (argv[0] == 30) {
+			dfs->nhm_dty_th = (u8)argv[1];
+			PDM_SNPF(out_len, used, output + used, out_len - used,
+				"nhm_dty_th = %d\n",
+				dfs->nhm_dty_th);
+		} else if (argv[0] == 31) {
+			dfs->pw_flag_en = (u8)argv[1];
+			PDM_SNPF(out_len, used, output + used, out_len - used,
+				"pw_flag_en = %d\n",
+				dfs->pw_flag_en);
+		} else if (argv[0] == 32) {
+			dfs->loct_flag_en = (u8)argv[1];
+			PDM_SNPF(out_len, used, output + used, out_len - used,
+				"loct_flag_en = %d\n",
+				dfs->loct_flag_en);
+		} else if (argv[0] == 33) {
+			dfs->pri_flag_en = (u8)argv[1];
+			PDM_SNPF(out_len, used, output + used, out_len - used,
+				"pri_flag_en = %d\n",
+				dfs->pri_flag_en);
+		} else if (argv[0] == 34) {
+			dfs->pri_var_offset = (u8)argv[1];
+			PDM_SNPF(out_len, used, output + used, out_len - used,
+				"pri_var_offset = %d\n",
+				dfs->pri_var_offset);
+		} else if (argv[0] == 35) {
+			dfs->pri_var_tp_offset = (u8)argv[1];
+			PDM_SNPF(out_len, used, output + used, out_len - used,
+				"pri_var_tp_offset = %d\n",
+				dfs->pri_var_tp_offset);
+		} else if (argv[0] == 36) {
+			dfs->pri_cnt_th = (u8)argv[1];
+			PDM_SNPF(out_len, used, output + used, out_len - used,
+				"pri_cnt_th = %d\n",
+				dfs->pri_cnt_th);
+		} else if (argv[0] == 37) {
+			dfs->loct_diff_th = (u8)argv[1];
+			PDM_SNPF(out_len, used, output + used, out_len - used,
+				"loct_diff_th = %d\n",
+				dfs->loct_diff_th);
+		} else if (argv[0] == 38) {
+			dfs->dc_cnt_th = (u8)argv[1];
+			PDM_SNPF(out_len, used, output + used, out_len - used,
+				"dc_cnt_th = %d\n",
+				dfs->dc_cnt_th);
 		}
 	}
 	*_used = used;
@@ -2330,11 +2816,9 @@ void phydm_dfs_debug(void *dm_void, char input[][16], u32 *_used,
 	u32 argv[10] = {0};
 	u8 i, input_idx = 0;
 
-	for (i = 0; i < 7; i++) {
-		if (input[i + 1]) {
-			PHYDM_SSCANF(input[i + 1], DCMD_HEX, &argv[i]);
-			input_idx++;
-		}
+	for (i = 0; i < 10; i++) {
+		PHYDM_SSCANF(input[i + 1], DCMD_HEX, &argv[i]);
+		input_idx++;
 	}
 
 	if (input_idx == 0)
@@ -2347,53 +2831,29 @@ void phydm_dfs_debug(void *dm_void, char input[][16], u32 *_used,
 	dfs->det_print2 = (boolean)argv[4];
 	dfs->print_hist_rpt = (boolean)argv[5];
 	dfs->hist_cond_on = (boolean)argv[6];
+	dfs->det_print_jar3 = (boolean)argv[7];
+	dfs->nhm_dfs_en = (boolean)argv[8];
+	dfs->det_jar3_en = (boolean)argv[9];
 
 	PDM_SNPF(out_len, used, output + used, out_len - used,
-		 "dbg_mode: %d, sw_trigger_mode: %d, force_TP_mode: %d, det_print: %d,det_print2: %d, print_hist_rpt: %d, hist_cond_on: %d\n",
+		  "dbg_mode: %d, sw_trigger_mode: %d, force_TP_mode: %d, det_print: %d, det_print2: %d, print_hist_rpt: %d, hist_cond_on: %d\n, det_print_jar3: %d, nhm_dfs_en: %d, dfs->det_jar3_en: %d\n",
 		 dfs->dbg_mode, dfs->sw_trigger_mode, dfs->force_TP_mode,
 		 dfs->det_print, dfs->det_print2, dfs->print_hist_rpt,
-		 dfs->hist_cond_on);
-
-	/*switch (argv[0]) {
-	case 1:
-#if defined(CONFIG_PHYDM_DFS_MASTER)
-		 set dbg parameters for radar detection instead of the default value
-		if (argv[1] == 1) {
-			dm->radar_detect_reg_918 = argv[2];
-			dm->radar_detect_reg_91c = argv[3];
-			dm->radar_detect_reg_920 = argv[4];
-			dm->radar_detect_reg_924 = argv[5];
-			dm->radar_detect_dbg_parm_en = 1;
-
-			PDM_SNPF((output + used, out_len - used, "Radar detection with dbg parameter\n"));
-			PDM_SNPF((output + used, out_len - used, "reg918:0x%08X\n", dm->radar_detect_reg_918));
-			PDM_SNPF((output + used, out_len - used, "reg91c:0x%08X\n", dm->radar_detect_reg_91c));
-			PDM_SNPF((output + used, out_len - used, "reg920:0x%08X\n", dm->radar_detect_reg_920));
-			PDM_SNPF((output + used, out_len - used, "reg924:0x%08X\n", dm->radar_detect_reg_924));
-		} else {
-			dm->radar_detect_dbg_parm_en = 0;
-			PDM_SNPF((output + used, out_len - used, "Radar detection with default parameter\n"));
-		}
-		phydm_radar_detect_enable(dm);
-#endif  defined(CONFIG_PHYDM_DFS_MASTER)
-
-		break;
-	default:
-		break;
-	}*/
+		 dfs->hist_cond_on, dfs->det_print_jar3, dfs->nhm_dfs_en,
+		 dfs->det_jar3_en);
 }
 
 u8 phydm_dfs_polling_time(void *dm_void)
 {
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
-	u8 dfs_polling_time = 0;
+	struct _DFS_STATISTICS *dfs = &dm->dfs;
 
-	if (dm->support_ic_type & (ODM_RTL8814A | ODM_RTL8822B | ODM_RTL8821C))
-		dfs_polling_time = 40;
+	if (dm->support_ic_type & (ODM_RTL8814A | ODM_RTL8822B | ODM_RTL8821C | ODM_RTL8822C | ODM_RTL8723F))
+		dfs->dfs_polling_time = 40;
 	else
-		dfs_polling_time = 100;
+		dfs->dfs_polling_time = 100;
 
-	return dfs_polling_time;
+	return dfs->dfs_polling_time;
 }
 
 #endif /* @defined(CONFIG_PHYDM_DFS_MASTER) */
